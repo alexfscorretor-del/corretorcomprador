@@ -1,0 +1,737 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Meu Corretor • Atendimento Premium</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap');
+    body { font-family: 'Inter', system-ui, sans-serif; -webkit-tap-highlight-color: transparent; }
+    .mask-phone { mask: "(00) 00000-0000"; }
+    .sidebar { transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1); }
+    @media (max-width: 768px) { .sidebar { transform: translateX(-100%); } .sidebar.open { transform: translateX(0); } }
+    .property-card { transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1); }
+    .property-card:hover { transform: translateY(-5px); box-shadow: 0 20px 25px -5px rgba(16, 185, 129, 0.2); }
+    .photo-preview { position: relative; display: inline-block; margin: 6px; }
+    .photo-preview .delete-btn { position: absolute; top: -8px; right: -8px; background: #ef4444; color: white; width: 26px; height: 26px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 16px; cursor: pointer; box-shadow: 0 2px 6px rgba(0,0,0,0.4); }
+    .photo-modal { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.95); z-index: 200; align-items: center; justify-content: center; }
+    .photo-modal.active { display: flex; }
+    .photo-modal img { max-width: 90vw; max-height: 90vh; object-fit: contain; border-radius: 8px; }
+    .photo-modal-close { position: absolute; top: 20px; right: 30px; color: white; font-size: 40px; cursor: pointer; }
+    .photo-thumbnail { position: relative; overflow: hidden; border-radius: 12px; cursor: pointer; }
+    .photo-thumbnail img { width: 100%; height: 100%; object-fit: cover; transition: transform 0.3s ease; }
+    .photo-thumbnail:hover img { transform: scale(1.1); }
+    .star-rating { display: flex; gap: 4px; }
+    .star-rating i { cursor: pointer; transition: color 0.2s; }
+    .star-rating i.active { color: #fbbf24; }
+    .star-rating i:not(.active) { color: #4b5563; }
+    ::-webkit-scrollbar { width: 6px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.1); border-radius: 10px; }
+    ::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,0.2); }
+  </style>
+</head>
+<body class="bg-gradient-to-br from-gray-950 to-gray-900 text-gray-100 min-h-screen overflow-hidden">
+
+  <div class="md:hidden fixed top-0 left-0 right-0 h-14 bg-gray-900 border-b border-white/10 z-50 flex items-center px-4">
+    <button onclick="toggleMobileSidebar()" class="text-2xl mr-4"><i class="fas fa-bars"></i></button>
+    <div id="mobile-client-header" class="flex-1 font-semibold text-lg truncate"></div>
+    <button onclick="goHome()" class="text-xl mr-4 text-emerald-400"><i class="fas fa-home"></i></button>
+    <div onclick="editBrokerModal()" class="flex items-center gap-1 text-emerald-400"><i class="fas fa-user-tie"></i></div>
+  </div>
+
+  <div class="flex h-screen pt-14 md:pt-0">
+    <div id="sidebar" class="sidebar fixed md:static inset-y-0 left-0 z-50 w-80 bg-gray-900/95 border-r border-white/10 shadow-2xl flex flex-col md:translate-x-0">
+      <div class="p-6 border-b border-white/10 flex items-center justify-between">
+        <div onclick="editBrokerModal()" class="flex items-center gap-3 cursor-pointer hover:bg-white/5 p-3 rounded-3xl transition-all flex-1">
+          <div class="w-10 h-10 bg-emerald-500 rounded-2xl flex items-center justify-center text-white font-bold text-2xl">👔</div>
+          <div class="flex-1">
+            <div id="broker-name-sidebar" class="font-semibold text-xl"></div>
+            <div id="broker-phone-sidebar" class="text-emerald-400 text-sm flex items-center gap-1"></div>
+          </div>
+        </div>
+        <button onclick="goHome()" title="Início" class="ml-2 p-3 bg-white/5 hover:bg-white/10 rounded-2xl text-emerald-400 transition-all">
+          <i class="fas fa-home text-xl"></i>
+        </button>
+      </div>
+      <div class="p-6">
+        <button onclick="showAddClientModal()" class="w-full bg-gradient-to-r from-emerald-500 to-teal-400 hover:from-emerald-600 hover:to-teal-500 py-4 rounded-3xl flex items-center justify-center gap-3 font-semibold text-lg shadow-lg shadow-emerald-500/30">
+          <i class="fas fa-plus"></i> NOVO CLIENTE
+        </button>
+      </div>
+      <div class="px-6">
+        <div class="relative">
+          <i class="fas fa-search absolute left-4 top-1/2 -translate-y-1/2 text-gray-400"></i>
+          <input id="searchInput" onkeyup="filterClients()" type="text" placeholder="Buscar por nome ou telefone" class="w-full bg-white/10 border border-white/10 focus:border-emerald-400 rounded-3xl py-3.5 pl-11 pr-4 text-base outline-none">
+        </div>
+      </div>
+      <div id="client-list" class="flex-1 overflow-auto mt-6 px-4 space-y-1"></div>
+      <div onclick="toggleMobileSidebar()" class="md:hidden absolute top-6 right-6 text-3xl text-gray-400 cursor-pointer"><i class="fas fa-times"></i></div>
+    </div>
+
+    <div class="flex-1 flex flex-col min-w-0">
+      <div class="hidden md:flex h-16 bg-white/5 border-b border-white/10 px-8 items-center justify-between backdrop-blur-md">
+        <div id="client-header" class="flex items-center gap-4 text-2xl font-semibold"></div>
+        <div class="flex items-center gap-6">
+          <button onclick="goHome()" class="flex items-center gap-2 text-emerald-400 hover:text-emerald-300 transition-all">
+            <i class="fas fa-home"></i><span class="font-medium">Início</span>
+          </button>
+          <div onclick="editBrokerModal()" class="flex items-center gap-2 cursor-pointer hover:text-emerald-300"><i class="fas fa-user-tie"></i><span id="broker-name-header" class="font-medium"></span></div>
+          <button onclick="logoutClient()" class="flex items-center gap-2 text-gray-400 hover:text-white"><i class="fas fa-sign-out-alt"></i><span class="text-sm">Sair</span></button>
+        </div>
+      </div>
+      <div id="content" class="flex-1 p-4 md:p-8 overflow-auto"></div>
+    </div>
+  </div>
+
+  <div id="addClientModal" class="hidden fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4 md:p-0">
+    <div class="bg-gray-900 w-full max-w-3xl rounded-3xl p-6 md:p-8 max-h-[90vh] overflow-auto">
+      <h2 id="modalTitle" class="text-3xl font-semibold mb-8 flex items-center gap-3"><i class="fas fa-user-plus text-emerald-400"></i> Novo Cliente</h2>
+      <form id="clientForm" class="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-6">
+        <div><label class="block text-xs uppercase tracking-widest text-gray-400 mb-1">Nome completo *</label><input id="nome" required class="w-full bg-white/10 border border-white/10 focus:border-emerald-400 rounded-3xl px-6 py-4 text-lg outline-none"></div>
+        <div><label class="block text-xs uppercase tracking-widest text-gray-400 mb-1">Telefone *</label><input id="telefone" required maxlength="15" class="mask-phone w-full bg-white/10 border border-white/10 focus:border-emerald-400 rounded-3xl px-6 py-4 text-lg outline-none" placeholder="(11) 98765-4321"></div>
+        <div><label class="block text-xs uppercase tracking-widest text-gray-400 mb-1">Data de aniversário</label><input id="aniversario" type="date" class="w-full bg-white/10 border border-white/10 focus:border-emerald-400 rounded-3xl px-6 py-4 text-lg outline-none"></div>
+        <div><label class="block text-xs uppercase tracking-widest text-gray-400 mb-1">E-mail</label><input id="email" type="email" class="w-full bg-white/10 border border-white/10 focus:border-emerald-400 rounded-3xl px-6 py-4 text-lg outline-none"></div>
+        <div class="md:col-span-2"><label class="block text-xs uppercase tracking-widest text-gray-400 mb-1">Imóvel desejado</label><input id="imovelDesejado" class="w-full bg-white/10 border border-white/10 focus:border-emerald-400 rounded-3xl px-6 py-4 text-lg outline-none"></div>
+        <div><label class="block text-xs uppercase tracking-widest text-gray-400 mb-1">Bairro principal</label><input id="bairro" class="w-full bg-white/10 border border-white/10 focus:border-emerald-400 rounded-3xl px-6 py-4 text-lg outline-none"></div>
+        <div><label class="block text-xs uppercase tracking-widest text-gray-400 mb-1">Bairros secundários</label><input id="bairrosSecundarios" class="w-full bg-white/10 border border-white/10 focus:border-emerald-400 rounded-3xl px-6 py-4 text-lg outline-none" placeholder="separados por vírgula"></div>
+        <div><label class="block text-xs uppercase tracking-widest text-gray-400 mb-1">Tamanho ideal (m²)</label><input id="tamanho" type="number" class="w-full bg-white/10 border border-white/10 focus:border-emerald-400 rounded-3xl px-6 py-4 text-lg outline-none"></div>
+        <div><label class="block text-xs uppercase tracking-widest text-gray-400 mb-1">Quartos mínimos</label><input id="quartosMin" type="number" value="2" class="w-full bg-white/10 border border-white/10 focus:border-emerald-400 rounded-3xl px-6 py-4 text-lg outline-none"></div>
+        <div><label class="block text-xs uppercase tracking-widest text-gray-400 mb-1">Vagas mínimas</label><input id="vagasMin" type="number" value="1" class="w-full bg-white/10 border border-white/10 focus:border-emerald-400 rounded-3xl px-6 py-4 text-lg outline-none"></div>
+        <div><label class="block text-xs uppercase tracking-widest text-gray-400 mb-1">Tipo de vaga</label><select id="tipoVaga" class="w-full bg-white/10 border border-white/10 focus:border-emerald-400 rounded-3xl px-6 py-4 text-lg outline-none"><option value="">Selecione</option><option value="coberta">Coberta</option><option value="descoberta">Descoberta</option><option value="garagem">Garagem</option><option value="mecanica">Mecânica</option></select></div>
+        <div class="flex items-center gap-3 md:col-span-2"><input id="prefAndar" type="checkbox" class="w-5 h-5 accent-emerald-500"><span class="text-sm">Prefere andar</span><input id="andarApartir" type="number" placeholder="a partir de" class="w-28 bg-white/10 border border-white/10 focus:border-emerald-400 rounded-3xl px-6 py-4 text-lg outline-none"></div>
+        <div class="md:col-span-2 grid grid-cols-2 gap-8">
+          <div><label class="block text-xs uppercase tracking-widest text-gray-400 mb-2">Prédio novo?</label><div class="flex gap-6"><label class="flex items-center gap-2 cursor-pointer"><input type="radio" name="novo" value="sim" class="accent-emerald-500"> Sim</label><label class="flex items-center gap-2 cursor-pointer"><input type="radio" name="novo" value="nao" checked class="accent-emerald-500"> Não</label></div></div>
+          <div id="reformadoContainer" class="hidden"><label class="block text-xs uppercase tracking-widest text-gray-400 mb-2">Precisa estar reformado?</label><div class="flex gap-6"><label class="flex items-center gap-2 cursor-pointer"><input type="radio" name="reformado" value="sim" class="accent-emerald-500"> Sim</label><label class="flex items-center gap-2 cursor-pointer"><input type="radio" name="reformado" value="nao" class="accent-emerald-500"> Não</label></div></div>
+        </div>
+        <div><label class="block text-xs uppercase tracking-widest text-gray-400 mb-1">Sexo</label><select id="sexo" class="w-full bg-white/10 border border-white/10 focus:border-emerald-400 rounded-3xl px-6 py-4 text-lg outline-none"><option value="">Selecione</option><option value="Masculino">Masculino</option><option value="Feminino">Feminino</option></select></div>
+        <div><label class="block text-xs uppercase tracking-widest text-gray-400 mb-1">Estado civil</label><select id="estadoCivil" class="w-full bg-white/10 border border-white/10 focus:border-emerald-400 rounded-3xl px-6 py-4 text-lg outline-none"><option value="">Selecione</option><option value="Casado(a)">Casado(a)</option><option value="Solteiro(a)">Solteiro(a)</option><option value="União estável">União estável</option></select></div>
+        <div class="flex items-center gap-3"><input id="temFilhos" type="checkbox" class="w-5 h-5 accent-emerald-500"><span class="text-sm">Tem filhos?</span><input id="quantFilhos" type="number" placeholder="quantos" class="w-24 bg-white/10 border border-white/10 focus:border-emerald-400 rounded-3xl px-6 py-4 text-lg outline-none"></div>
+        <div><label class="block text-xs uppercase tracking-widest text-gray-400 mb-1">Prazo para encontrar</label><input id="prazo" type="date" class="w-full bg-white/10 border border-white/10 focus:border-emerald-400 rounded-3xl px-6 py-4 text-lg outline-none"></div>
+        <div class="md:col-span-2"><label class="block text-xs uppercase tracking-widest text-gray-400 mb-1">Observações / Orçamento máximo</label><textarea id="obs" class="w-full bg-white/10 border border-white/10 focus:border-emerald-400 rounded-3xl px-6 py-4 text-lg outline-none h-28"></textarea></div>
+        <div class="col-span-full flex gap-4 pt-6">
+          <button type="button" onclick="hideAddClientModal()" class="flex-1 py-6 text-lg font-medium bg-white/10 hover:bg-white/20 rounded-3xl">Cancelar</button>
+          <button type="submit" class="flex-1 py-6 text-lg font-semibold bg-gradient-to-r from-emerald-500 to-teal-400 rounded-3xl">SALVAR ALTERAÇÕES</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <div id="propertyModalContainer"></div>
+  <div id="propertyDetailModal" class="hidden fixed inset-0 bg-black/80 flex items-center justify-center z-[110] p-4">
+    <div class="bg-gray-900 w-full max-w-5xl rounded-3xl p-6 md:p-10 max-h-[95vh] overflow-auto">
+      <div class="flex justify-end mb-4"><button onclick="hidePropertyDetailModal()" class="text-3xl text-gray-400 hover:text-white"><i class="fas fa-times"></i></button></div>
+      <div id="propertyDetailContent" class="text-base"></div>
+    </div>
+  </div>
+  <div id="photoModal" class="photo-modal">
+    <div class="photo-modal-close" onclick="closePhotoModal()"><i class="fas fa-times"></i></div>
+    <img id="photoModalImage" src="" alt="">
+  </div>
+  <div id="brokerModal" class="hidden fixed inset-0 bg-black/70 flex items-center justify-center z-[100] p-4">
+    <div class="bg-gray-900 w-full max-w-md rounded-3xl p-8">
+      <h2 class="text-2xl font-semibold mb-6">Seu perfil de corretor</h2>
+      <div class="space-y-6">
+        <div><label class="block text-xs uppercase text-gray-400 mb-2">Nome completo</label><input id="brokerNome" class="w-full bg-white/10 border border-white/10 rounded-3xl px-6 py-4 text-lg"></div>
+        <div><label class="block text-xs uppercase text-gray-400 mb-2">Telefone</label><input id="brokerTelefone" class="mask-phone w-full bg-white/10 border border-white/10 rounded-3xl px-6 py-4 text-lg"></div>
+        <div class="flex gap-4"><button onclick="hideBrokerModal()" class="flex-1 py-5 text-gray-400">Cancelar</button><button onclick="saveBroker()" class="flex-1 py-5 bg-emerald-500 rounded-3xl font-semibold">SALVAR</button></div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    let clients = JSON.parse(localStorage.getItem('clients')) || [];
+    let broker = JSON.parse(localStorage.getItem('broker')) || { nome: "Seu Nome", telefone: "(11) 99999-9999" };
+    let selectedClientId = null;
+    let editingClientId = null;
+    let editingPropertyId = null;
+    let filteredClients = [...clients];
+
+    function goHome() {
+      selectedClientId = null;
+      editingClientId = null;
+      editingPropertyId = null;
+      renderClientList();
+      document.getElementById('content').innerHTML = `
+        <div class="flex flex-col items-center justify-center h-full text-center p-8">
+          <div class="w-24 h-24 bg-emerald-500/20 rounded-full flex items-center justify-center text-emerald-400 text-5xl mb-6">
+            <i class="fas fa-home"></i>
+          </div>
+          <h1 class="text-4xl font-bold mb-4">Bem-vindo ao Meu Corretor</h1>
+          <p class="text-xl text-gray-400 max-w-md">Selecione um cliente na barra lateral ou cadastre um novo para começar o atendimento premium.</p>
+        </div>
+      `;
+      if (window.innerWidth < 768) document.getElementById('sidebar').classList.add('open');
+    }
+
+    function toggleMobileSidebar() { document.getElementById('sidebar').classList.toggle('open'); }
+    function updateMobileHeader() {
+      const client = clients.find(c => c.id === selectedClientId);
+      document.getElementById('mobile-client-header').innerHTML = client ? `${client.nome} <span class="text-emerald-400 text-sm ml-2">${client.telefone}</span>` : 'Clientes';
+    }
+    function saveBroker() {
+      broker.nome = document.getElementById('brokerNome').value.trim() || "Seu Nome";
+      broker.telefone = document.getElementById('brokerTelefone').value.trim();
+      localStorage.setItem('broker', JSON.stringify(broker));
+      hideBrokerModal();
+      updateBrokerDisplay();
+    }
+    function updateBrokerDisplay() {
+      document.getElementById('broker-name-sidebar').textContent = broker.nome;
+      document.getElementById('broker-phone-sidebar').innerHTML = `<i class="fas fa-phone"></i> ${broker.telefone}`;
+      document.getElementById('broker-name-header').innerHTML = `${broker.nome}`;
+    }
+    function editBrokerModal() {
+      document.getElementById('brokerNome').value = broker.nome;
+      document.getElementById('brokerTelefone').value = broker.telefone;
+      document.getElementById('brokerModal').classList.remove('hidden');
+      if (window.innerWidth < 768) toggleMobileSidebar();
+    }
+    function hideBrokerModal() { document.getElementById('brokerModal').classList.add('hidden'); }
+    function maskPhone(input) {
+      let v = input.value.replace(/\D/g, '');
+      v = v.replace(/^(\d{2})(\d)/, '($1) $2');
+      v = v.replace(/(\d{5})(\d)/, '$1-$2');
+      input.value = v;
+    }
+    function filterClients() {
+      const term = document.getElementById('searchInput').value.toLowerCase().trim();
+      filteredClients = clients.filter(c => c.nome.toLowerCase().includes(term) || (c.telefone && c.telefone.includes(term)));
+      renderClientList();
+    }
+    function renderClientList() {
+      const container = document.getElementById('client-list');
+      container.innerHTML = filteredClients.length === 0 ? `<div class="text-center py-12 text-gray-400">Nenhum cliente encontrado</div>` : filteredClients.map(c => `
+        <div onclick="selectClient(${c.id}); if(window.innerWidth<768) toggleMobileSidebar();" class="group px-5 py-4 hover:bg-white/5 rounded-3xl cursor-pointer flex justify-between items-center transition-all ${selectedClientId === c.id ? 'bg-emerald-900/30 ring-1 ring-emerald-400' : ''}">
+          <div><div class="font-semibold text-lg">${c.nome}</div><div class="text-emerald-400 text-sm">${c.telefone}</div></div>
+          <div class="text-xs text-gray-400">${new Date(c.createdAt).toLocaleDateString('pt-BR')}</div>
+        </div>`).join('');
+    }
+    function selectClient(id) {
+      selectedClientId = id;
+      renderClientList();
+      renderClientDetail();
+      updateMobileHeader();
+    }
+    function calculateCompatibility(client, property) {
+      let score = 0;
+      if (client.bairro && property.bairro && (client.bairro.toLowerCase() === property.bairro.toLowerCase() || (client.bairrosSecundarios && client.bairrosSecundarios.toLowerCase().includes(property.bairro.toLowerCase())))) score += 30;
+      if (property.quartos >= client.quartosMin) score += 25;
+      if (property.vagas >= client.vagasMin) score += 20;
+      if (client.tamanho && property.tamanho) { const diff = Math.abs(property.tamanho - client.tamanho) / client.tamanho; if (diff <= 0.25) score += 15; }
+      if (!client.prefAndar || (property.andar && property.andar >= (client.andarApartir || 1))) score += 10;
+      return Math.min(100, Math.max(0, Math.round(score)));
+    }
+
+    function renderClientDetail() {
+      const client = clients.find(c => c.id === selectedClientId);
+      if (!client) return;
+      document.getElementById('client-header').innerHTML = `<div>${client.nome}</div><div class="text-emerald-400 text-base font-normal">${client.telefone}</div>`;
+      let html = `
+        <div class="max-w-6xl mx-auto">
+          <div class="bg-white/5 backdrop-blur-xl border border-white/10 rounded-3xl p-6 md:p-8 mb-8">
+            <div class="flex justify-between items-center mb-6">
+              <h2 class="text-2xl md:text-3xl font-semibold">Perfil completo</h2>
+              <button onclick="editClient()" class="flex items-center gap-2 bg-emerald-500 hover:bg-emerald-600 px-5 py-3 rounded-3xl text-sm font-medium"><i class="fas fa-edit"></i> EDITAR CADASTRO COMPLETO</button>
+            </div>
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-6 text-sm">
+              <div><span class="text-gray-400">Nome</span><br><span class="font-medium">${client.nome}</span></div>
+              <div><span class="text-gray-400">Telefone</span><br><span class="font-medium">${client.telefone}</span></div>
+              <div><span class="text-gray-400">Aniversário</span><br><span class="font-medium">${client.aniversario || '-'}</span></div>
+              <div><span class="text-gray-400">E-mail</span><br><span class="font-medium">${client.email || '-'}</span></div>
+              <div><span class="text-gray-400">Bairro principal</span><br><span class="font-medium">${client.bairro || '-'}</span></div>
+              <div><span class="text-gray-400">Bairros secundários</span><br><span class="font-medium">${client.bairrosSecundarios || '-'}</span></div>
+              <div><span class="text-gray-400">Tamanho ideal</span><br><span class="font-medium">${client.tamanho ? client.tamanho + ' m²' : '-'}</span></div>
+              <div><span class="text-gray-400">Quartos mínimos</span><br><span class="font-medium">${client.quartosMin}</span></div>
+              <div><span class="text-gray-400">Vagas mínimas</span><br><span class="font-medium">${client.vagasMin} (${client.tipoVaga || '-'})</span></div>
+              <div><span class="text-gray-400">Prefere andar</span><br><span class="font-medium">${client.prefAndar ? 'Sim, a partir do ' + (client.andarApartir || '') : 'Não'}</span></div>
+              <div><span class="text-gray-400">Prédio novo</span><br><span class="font-medium">${client.novo === 'sim' ? 'Sim' : 'Não'}</span></div>
+              ${client.novo === 'nao' ? `<div><span class="text-gray-400">Reformado</span><br><span class="font-medium">${client.reformado === 'sim' ? 'Sim' : 'Não'}</span></div>` : ''}
+              <div><span class="text-gray-400">Sexo</span><br><span class="font-medium">${client.sexo || '-'}</span></div>
+              <div><span class="text-gray-400">Estado civil</span><br><span class="font-medium">${client.estadoCivil || '-'}</span></div>
+              <div><span class="text-gray-400">Filhos</span><br><span class="font-medium">${client.temFilhos ? client.quantFilhos + ' filho(s)' : 'Não'}</span></div>
+              <div><span class="text-gray-400">Prazo</span><br><span class="font-medium">${client.prazo ? new Date(client.prazo).toLocaleDateString('pt-BR') : '-'}</span></div>
+              <div class="col-span-full"><span class="text-gray-400">Observações</span><br><span class="font-medium">${client.obs || '-'}</span></div>
+            </div>
+          </div>
+          <div class="flex justify-between items-center mb-6">
+            <h3 class="text-2xl md:text-3xl font-semibold">Imóveis encontrados (${client.properties ? client.properties.length : 0})</h3>
+            <div class="flex gap-3">
+              <button onclick="generateClientCatalog()" class="bg-white text-black px-6 py-3 rounded-3xl font-medium flex items-center gap-2"><i class="fas fa-link"></i> Gerar Página do Cliente</button>
+              <button onclick="showAddPropertyModal()" class="bg-gradient-to-r from-emerald-500 to-teal-400 px-6 py-3 rounded-3xl flex items-center gap-3 font-semibold shadow-lg shadow-emerald-500/30"><i class="fas fa-plus"></i> Adicionar imóvel</button>
+            </div>
+          </div>
+          <div id="properties-list" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6"></div>
+        </div>
+      `;
+      document.getElementById('content').innerHTML = html;
+      renderProperties();
+    }
+
+    function renderProperties() {
+      const client = clients.find(c => c.id === selectedClientId);
+      const container = document.getElementById('properties-list');
+      if (!client.properties || client.properties.length === 0) {
+        container.innerHTML = `<div class="col-span-full text-center py-12 text-gray-400 text-xl">Nenhum imóvel cadastrado ainda</div>`;
+        return;
+      }
+      container.innerHTML = client.properties.map(p => {
+        const compat = calculateCompatibility(client, p);
+        const rating = p.rating || 0;
+        return `
+          <div onclick="showPropertyDetail(${p.id});" class="property-card bg-white/5 backdrop-blur-xl border border-white/10 rounded-3xl p-4 cursor-pointer">
+            <div class="relative">
+              <div class="w-full aspect-video bg-gray-800 rounded-3xl overflow-hidden">
+                ${p.fotos && p.fotos.length ? `<img src="${p.fotos[0]}" class="w-full h-full object-cover">` : '<div class="flex items-center justify-center h-full text-gray-400 text-5xl">📸</div>'}
+              </div>
+              <div class="absolute top-4 right-4 bg-black/70 text-white text-xs font-bold px-3 py-1 rounded-2xl">${compat}%</div>
+            </div>
+            <div class="flex justify-between items-start mt-4">
+              <h4 class="font-semibold text-lg flex-1">${p.titulo}</h4>
+              <div class="star-rating ml-2">
+                ${[1,2,3,4,5].map(n => `<i class="fas fa-star ${n <= rating ? 'active' : ''}" style="font-size:12px;"></i>`).join('')}
+              </div>
+            </div>
+            <p class="text-emerald-400 text-2xl font-bold">R$ ${Number(p.preco).toLocaleString('pt-BR')}</p>
+            <p class="text-gray-400 text-sm">${p.bairro} • ${p.tamanho || '?'}m² • ${p.quartos} quartos • ${p.vagas} vagas</p>
+            <div class="flex justify-between items-center mt-6">
+              <button onclick="event.stopImmediatePropagation(); showAddPropertyModal(${p.id});" class="flex-1 bg-emerald-500 text-white py-3 rounded-3xl font-medium flex items-center justify-center gap-2 text-sm"><i class="fas fa-edit"></i> Editar</button>
+              <button onclick="event.stopImmediatePropagation(); generatePropertyPDF(${client.id}, ${p.id});" class="flex-1 mx-2 bg-white text-black py-3 rounded-3xl font-medium flex items-center justify-center gap-2 text-sm"><i class="fas fa-file-pdf"></i> PDF</button>
+              <button onclick="event.stopImmediatePropagation(); deleteProperty(${p.id});" class="text-red-400 px-4"><i class="fas fa-trash"></i></button>
+            </div>
+          </div>`;
+      }).join('');
+    }
+
+    function showPropertyDetail(id) {
+      const client = clients.find(c => c.id === selectedClientId);
+      const prop = client.properties.find(p => p.id === id);
+      if (!prop) return;
+      const compat = calculateCompatibility(client, prop);
+      let photosHTML = prop.fotos && prop.fotos.length ? `
+          <div class="grid grid-cols-2 md:grid-cols-3 gap-4 my-10">
+            ${prop.fotos.map((url, idx) => `<div class="photo-thumbnail aspect-square" onclick="openPhotoModal('${url}')"><img src="${url}" alt="Foto ${idx + 1}"></div>`).join('')}
+          </div>` : '<div class="col-span-full text-gray-400 text-center py-12 text-3xl">Sem fotos</div>';
+      const html = `
+        <div>
+          <div class="flex justify-between items-start mb-8">
+            <h2 class="text-4xl font-bold">${prop.titulo}</h2>
+            <div class="text-right">
+              <div class="text-5xl font-bold text-emerald-400">R$ ${Number(prop.preco).toLocaleString('pt-BR')}</div>
+              <div class="text-emerald-400 text-2xl">${compat}% compatibilidade</div>
+            </div>
+          </div>
+          ${photosHTML}
+          <div class="grid grid-cols-2 md:grid-cols-3 gap-x-8 gap-y-6 text-lg mb-12">
+            <div><strong>Bairro:</strong> <span class="text-emerald-400">${prop.bairro}</span></div>
+            <div><strong>Tamanho:</strong> <span class="text-emerald-400">${prop.tamanho || '?'} m²</span></div>
+            <div><strong>Quartos:</strong> <span class="text-emerald-400">${prop.quartos}</span></div>
+            <div><strong>Vagas:</strong> <span class="text-emerald-400">${prop.vagas}</span></div>
+            <div><strong>Andar:</strong> <span class="text-emerald-400">${prop.andar || '-'}</span></div>
+            <div><strong>Link:</strong> <a href="${prop.link || '#'}" target="_blank" class="text-emerald-400 underline hover:text-emerald-300">${prop.link ? 'Abrir anúncio' : '—'}</a></div>
+          </div>
+          ${prop.descricao ? `<div class="mt-12 p-6 bg-white/5 rounded-3xl border border-white/10 text-lg leading-relaxed">${prop.descricao}</div>` : ''}
+          <div class="mt-12 flex gap-4">
+            <button onclick="hidePropertyDetailModal(); generatePropertyPDF(${client.id}, ${prop.id});" class="flex-1 py-6 bg-white text-black rounded-3xl font-medium hover:bg-gray-100">Gerar PDF</button>
+            <button onclick="hidePropertyDetailModal()" class="flex-1 py-6 bg-white/10 rounded-3xl hover:bg-white/20">Fechar</button>
+          </div>
+        </div>`;
+      document.getElementById('propertyDetailContent').innerHTML = html;
+      document.getElementById('propertyDetailModal').classList.remove('hidden');
+    }
+
+    function hidePropertyDetailModal() { document.getElementById('propertyDetailModal').classList.add('hidden'); }
+    function openPhotoModal(src) { document.getElementById('photoModalImage').src = src; document.getElementById('photoModal').classList.add('active'); }
+    function closePhotoModal() { document.getElementById('photoModal').classList.remove('active'); }
+
+    function showAddPropertyModal(editId = null) {
+      editingPropertyId = editId;
+      const client = clients.find(c => c.id === selectedClientId);
+      const prop = editId ? client.properties.find(p => p.id === editId) : null;
+      const modalHTML = `
+        <div class="fixed inset-0 bg-black/80 flex items-center justify-center z-[100] p-4">
+          <div class="bg-gray-900 w-full max-w-2xl rounded-3xl p-8 max-h-[90vh] overflow-auto">
+            <h2 class="text-2xl font-bold mb-6">${editId ? 'Editar Imóvel' : 'Cadastrar Imóvel'}</h2>
+            <div class="flex gap-2 mb-8">
+              <input id="linkImovel" placeholder="Cole o link do anúncio (ZapImóveis, VivaReal, etc)" class="flex-1 bg-white/10 border border-white/10 rounded-3xl px-6 py-4 text-lg outline-none focus:border-emerald-400">
+              <button onclick="loadFromLink()" id="btnLoadLink" class="px-6 bg-emerald-600 hover:bg-emerald-500 rounded-3xl font-medium transition-all">🔄 Carregar</button>
+            </div>
+            <div class="grid grid-cols-2 gap-6">
+              <div><label class="text-xs text-gray-400">Título</label><input id="propTitulo" value="${prop ? prop.titulo : ''}" class="w-full bg-white/10 border border-white/10 rounded-3xl px-6 py-4 outline-none focus:border-emerald-400"></div>
+              <div><label class="text-xs text-gray-400">Preço</label><input id="propPreco" type="number" value="${prop ? prop.preco : ''}" class="w-full bg-white/10 border border-white/10 rounded-3xl px-6 py-4 outline-none focus:border-emerald-400"></div>
+              <div><label class="text-xs text-gray-400">Bairro</label><input id="propBairro" value="${prop ? prop.bairro : ''}" class="w-full bg-white/10 border border-white/10 rounded-3xl px-6 py-4 outline-none focus:border-emerald-400"></div>
+              <div><label class="text-xs text-gray-400">Tamanho (m²)</label><input id="propTamanho" type="number" value="${prop ? prop.tamanho : ''}" class="w-full bg-white/10 border border-white/10 rounded-3xl px-6 py-4 outline-none focus:border-emerald-400"></div>
+              <div><label class="text-xs text-gray-400">Quartos</label><input id="propQuartos" type="number" value="${prop ? prop.quartos : ''}" class="w-full bg-white/10 border border-white/10 rounded-3xl px-6 py-4 outline-none focus:border-emerald-400"></div>
+              <div><label class="text-xs text-gray-400">Vagas</label><input id="propVagas" type="number" value="${prop ? prop.vagas : ''}" class="w-full bg-white/10 border border-white/10 rounded-3xl px-6 py-4 outline-none focus:border-emerald-400"></div>
+              <div><label class="text-xs text-gray-400">Andar</label><input id="propAndar" type="number" value="${prop ? prop.andar : ''}" class="w-full bg-white/10 border border-white/10 rounded-3xl px-6 py-4 outline-none focus:border-emerald-400"></div>
+              <div><label class="text-xs text-gray-400">Link completo</label><input id="propLink" value="${prop ? prop.link : ''}" class="w-full bg-white/10 border border-white/10 rounded-3xl px-6 py-4 outline-none focus:border-emerald-400"></div>
+            </div>
+            <div class="mt-8">
+              <label class="text-xs block mb-3 text-gray-400">Fotos do imóvel</label>
+              <input type="file" id="propFileUpload" accept="image/*" multiple class="w-full bg-white/10 border border-white/10 rounded-3xl px-6 py-4 text-sm">
+              <div id="uploadedPreview" class="flex flex-wrap gap-4 mt-6"></div>
+            </div>
+            <div class="mt-6">
+              <label class="text-xs text-gray-400">Ou cole URLs (separadas por vírgula)</label>
+              <textarea id="propFotos" class="w-full bg-white/10 border border-white/10 rounded-3xl px-6 py-4 h-20 outline-none focus:border-emerald-400" placeholder="https://foto1.jpg, https://foto2.jpg">${prop && prop.fotos ? prop.fotos.filter(f => !f.startsWith('data:')).join(', ') : ''}</textarea>
+            </div>
+            <textarea id="propDescricao" placeholder="Descrição completa do imóvel" class="w-full bg-white/10 border border-white/10 rounded-3xl px-6 py-4 h-32 mt-6 outline-none focus:border-emerald-400">${prop ? prop.descricao : ''}</textarea>
+            <div class="flex gap-3 mt-8">
+              <button onclick="hidePropertyModal()" class="flex-1 py-5 bg-white/10 rounded-3xl hover:bg-white/20 transition-all">Cancelar</button>
+              <button onclick="saveProperty()" class="flex-1 py-5 bg-emerald-600 rounded-3xl font-semibold hover:bg-emerald-500 transition-all">Salvar Imóvel</button>
+            </div>
+          </div>
+        </div>`;
+      const div = document.createElement('div');
+      div.innerHTML = modalHTML;
+      document.getElementById('propertyModalContainer').innerHTML = '';
+      document.getElementById('propertyModalContainer').appendChild(div.firstElementChild);
+      const preview = document.getElementById('uploadedPreview');
+      if (prop && prop.fotos) {
+        prop.fotos.forEach(src => {
+          const div = document.createElement('div');
+          div.className = 'photo-preview';
+          div.innerHTML = `<img src="${src}" class="h-24 w-24 object-cover rounded-2xl border border-white/30"><div class="delete-btn" onclick="this.parentElement.remove()">×</div>`;
+          preview.appendChild(div);
+        });
+      }
+      document.getElementById('propFileUpload').addEventListener('change', function() {
+        Array.from(this.files).forEach(file => {
+          const reader = new FileReader();
+          reader.onload = e => {
+            const div = document.createElement('div');
+            div.className = 'photo-preview';
+            div.innerHTML = `<img src="${e.target.result}" class="h-24 w-24 object-cover rounded-2xl border border-white/30"><div class="delete-btn" onclick="this.parentElement.remove()">×</div>`;
+            preview.appendChild(div);
+          };
+          reader.readAsDataURL(file);
+        });
+      });
+    }
+
+    function hidePropertyModal() { document.getElementById('propertyModalContainer').innerHTML = ''; editingPropertyId = null; }
+    function saveProperty() {
+      const client = clients.find(c => c.id === selectedClientId);
+      if (!client.properties) client.properties = [];
+      const previewImgs = document.querySelectorAll('#uploadedPreview img');
+      let fotos = Array.from(previewImgs).map(img => img.src);
+      const manualUrls = document.getElementById('propFotos').value ? document.getElementById('propFotos').value.split(',').map(u => u.trim()).filter(Boolean) : [];
+      fotos = [...fotos, ...manualUrls];
+      const property = {
+        id: editingPropertyId || Date.now(),
+        titulo: document.getElementById('propTitulo').value || 'Imóvel sem título',
+        preco: document.getElementById('propPreco').value,
+        bairro: document.getElementById('propBairro').value,
+        tamanho: parseFloat(document.getElementById('propTamanho').value),
+        quartos: parseInt(document.getElementById('propQuartos').value),
+        vagas: parseInt(document.getElementById('propVagas').value),
+        andar: parseInt(document.getElementById('propAndar').value),
+        link: document.getElementById('propLink').value,
+        fotos: fotos,
+        descricao: document.getElementById('propDescricao').value,
+        rating: editingPropertyId ? (client.properties.find(p => p.id === editingPropertyId).rating || 0) : 0
+      };
+      if (editingPropertyId) { const index = client.properties.findIndex(p => p.id === editingPropertyId); if (index !== -1) client.properties[index] = property; }
+      else { client.properties.unshift(property); }
+      localStorage.setItem('clients', JSON.stringify(clients));
+      hidePropertyModal();
+      renderProperties();
+    }
+
+    async function loadFromLink() {
+      const link = document.getElementById('linkImovel').value.trim();
+      if (!link) { alert('Por favor, cole um link primeiro.'); return; }
+      const btn = document.getElementById('btnLoadLink');
+      btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
+      btn.disabled = true;
+      setTimeout(() => {
+        let data = { titulo: 'Apartamento Premium Decorado', preco: '890000', bairro: 'Setor Bueno', tamanho: '115', quartos: '3', vagas: '2', andar: '12', descricao: 'Excelente oportunidade em localização privilegiada. Imóvel completo em armários, varanda gourmet e lazer completo no prédio.', fotos: ['https://images.unsplash.com/photo-1502672260266-1c1ef2d93688?auto=format&fit=crop&w=800&q=80', 'https://images.unsplash.com/photo-1484154218962-a197022b5858?auto=format&fit=crop&w=800&q=80', 'https://images.unsplash.com/photo-1522708323590-d24dbb6b0267?auto=format&fit=crop&w=800&q=80'] };
+        document.getElementById('propTitulo').value = data.titulo;
+        document.getElementById('propPreco').value = data.preco;
+        document.getElementById('propBairro').value = data.bairro;
+        document.getElementById('propTamanho').value = data.tamanho;
+        document.getElementById('propQuartos').value = data.quartos;
+        document.getElementById('propVagas').value = data.vagas;
+        document.getElementById('propAndar').value = data.andar;
+        document.getElementById('propLink').value = link;
+        document.getElementById('propDescricao').value = data.descricao;
+        const preview = document.getElementById('uploadedPreview');
+        data.fotos.forEach(src => {
+          const div = document.createElement('div');
+          div.className = 'photo-preview';
+          div.innerHTML = `<img src="${src}" class="h-24 w-24 object-cover rounded-2xl border border-white/30"><div class="delete-btn" onclick="this.parentElement.remove()">×</div>`;
+          preview.appendChild(div);
+        });
+        btn.innerHTML = '🔄 Carregar';
+        btn.disabled = false;
+        alert('✅ Dados carregados com sucesso!');
+      }, 1500);
+    }
+
+    function deleteProperty(id) {
+      if (!confirm('Excluir este imóvel?')) return;
+      const client = clients.find(c => c.id === selectedClientId);
+      client.properties = client.properties.filter(p => p.id !== id);
+      localStorage.setItem('clients', JSON.stringify(clients));
+      renderProperties();
+    }
+
+    function generatePropertyPDF(clientId, propId) {
+      const client = clients.find(c => c.id === clientId);
+      const prop = client.properties.find(p => p.id === propId);
+      const compat = calculateCompatibility(client, prop);
+      let photosHTML = '';
+      if (prop.fotos && prop.fotos.length) {
+        const photoRows = [];
+        for (let i = 0; i < prop.fotos.length; i += 3) photoRows.push(prop.fotos.slice(i, i + 3));
+        photosHTML = photoRows.map(row => `<div style="display:flex;gap:15px;margin:20px 0;page-break-inside:avoid;">${row.map(f => `<img src="${f}" style="flex:1;height:200px;object-fit:cover;border-radius:12px;">`).join('')}</div>`).join('');
+      }
+      const pdfHTML = `<!DOCTYPE html><html><head><style>@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;700&display=swap');body{font-family:'Inter',Arial,sans-serif;margin:0;padding:40px;color:#111}.header{display:flex;justify-content:space-between;align-items:center;border-bottom:3px solid #10b981;padding-bottom:20px;margin-bottom:30px}.title{margin:0;font-size:36px;color:#10b981}.subtitle{margin:5px 0 0;color:#666;font-size:18px}.compat-box{text-align:right}.compat-val{font-size:28px;font-weight:700;color:#10b981}.compat-label{font-size:11px;letter-spacing:1px;color:#999}.price{font-size:32px;font-weight:700;color:#10b981;margin:20px 0}.specs{background:#f8fafc;padding:25px;border-radius:16px;margin:30px 0;display:grid;grid-template-columns:repeat(3,1fr);gap:20px}.spec-item strong{display:block;font-size:12px;color:#64748b;text-transform:uppercase;margin-bottom:5px}.desc{font-size:16px;line-height:1.6;color:#334155;background:#fff;border-left:4px solid #10b981;padding:20px;margin:30px 0}.footer{margin-top:50px;padding-top:30px;border-top:1px solid #e2e8f0;font-size:13px;color:#64748b}</style></head><body><div class="header"><div><h1 class="title">Apresentação de Imóvel</h1><p class="subtitle">Selecionado para ${client.nome}</p></div><div class="compat-box"><div class="compat-val">${compat}%</div><div class="compat-label">COMPATIBILIDADE</div></div></div><h2 style="margin:0;font-size:24px;">${prop.titulo}</h2><div class="price">R$ ${Number(prop.preco).toLocaleString('pt-BR')}</div><div class="specs"><div class="spec-item"><strong>Bairro</strong>${prop.bairro}</div><div class="spec-item"><strong>Área Útil</strong>${prop.tamanho}m²</div><div class="spec-item"><strong>Quartos</strong>${prop.quartos}</div><div class="spec-item"><strong>Vagas</strong>${prop.vagas}</div><div class="spec-item"><strong>Andar</strong>${prop.andar || '-'}</div></div>${photosHTML}${prop.descricao ? `<div class="desc">${prop.descricao}</div>` : ''}<div class="footer"><p><strong>Corretor:</strong> ${broker.nome} | <strong>Contato:</strong> ${broker.telefone}</p><p style="margin-top:10px;font-size:11px;">Gerado em ${new Date().toLocaleDateString('pt-BR', {day:'2-digit', month:'long', year:'numeric'})}</p></div><script>window.onload=()=>{window.print();}<\/script></body></html>`;
+      const win = window.open('', '_blank');
+      win.document.write(pdfHTML);
+      win.document.close();
+    }
+
+    function generateClientCatalog() {
+      const client = clients.find(c => c.id === selectedClientId);
+      if (!client || !client.properties || client.properties.length === 0) { alert('Cadastre pelo menos um imóvel primeiro'); return; }
+      const clientDataStr = btoa(unescape(encodeURIComponent(JSON.stringify(client))));
+      const brokerDataStr = btoa(unescape(encodeURIComponent(JSON.stringify(broker))));
+      let html = `<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+  <title>Imóveis para ${client.nome}</title>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+    * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+    body { font-family: 'Inter', sans-serif; background: #0f172a; color: #f8fafc; padding: 15px; line-height: 1.5; }
+    .container { max-width: 1000px; margin: 0 auto; }
+    .header { text-align: center; margin-bottom: 40px; padding: 30px 0; border-bottom: 2px solid #10b981; }
+    .header h1 { font-size: clamp(24px, 5vw, 42px); color: #10b981; margin-bottom: 10px; }
+    .header p { font-size: 16px; color: #94a3b8; }
+    .catalog { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 20px; }
+    .card { background: #1e293b; border: 1px solid #334155; border-radius: 24px; overflow: hidden; transition: 0.3s; cursor: pointer; display: flex; flex-direction: column; }
+    .card:hover { transform: translateY(-5px); border-color: #10b981; }
+    .card-image { position: relative; width: 100%; aspect-ratio: 16/10; overflow: hidden; }
+    .card-image img { width: 100%; height: 100%; object-fit: cover; }
+    .compatibility { position: absolute; top: 12px; right: 12px; background: #10b981; color: #0f172a; padding: 5px 12px; border-radius: 12px; font-weight: 700; font-size: 12px; }
+    .card-content { padding: 20px; flex: 1; display: flex; flex-direction: column; }
+    .card-title { font-size: 18px; font-weight: 600; margin-bottom: 8px; color: #f1f5f9; }
+    .card-price { font-size: 22px; color: #10b981; font-weight: 700; margin-bottom: 10px; }
+    .card-info { font-size: 13px; color: #94a3b8; margin-bottom: 20px; }
+    .card-actions { margin-top: auto; display: flex; justify-content: space-between; align-items: center; padding-top: 15px; border-top: 1px solid #334155; }
+    .btn-pdf { background: #f8fafc; color: #0f172a; padding: 10px 18px; border-radius: 14px; font-size: 13px; font-weight: 700; border: none; cursor: pointer; display: flex; align-items: center; gap: 8px; }
+    .star-rating { display: flex; gap: 5px; }
+    .star-rating i { font-size: 18px; color: #475569; transition: 0.2s; }
+    .star-rating i.active { color: #fbbf24; }
+    .detail { display: none; animation: fadeIn 0.3s ease; }
+    @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+    .back-btn { display: inline-flex; align-items: center; gap: 10px; color: #10b981; cursor: pointer; font-weight: 600; margin-bottom: 25px; padding: 10px 0; }
+    .detail-price { font-size: 32px; color: #10b981; font-weight: 800; margin: 15px 0; }
+    .detail-photos { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 12px; margin: 25px 0; }
+    .detail-photo { aspect-ratio: 1; border-radius: 16px; overflow: hidden; cursor: pointer; }
+    .detail-photo img { width: 100%; height: 100%; object-fit: cover; transition: 0.3s; }
+    .detail-specs { background: #1e293b; padding: 20px; border-radius: 20px; display: grid; grid-template-columns: repeat(2, 1fr); gap: 15px; margin-bottom: 25px; }
+    .spec-item span { display: block; font-size: 11px; color: #94a3b8; text-transform: uppercase; }
+    .spec-item b { font-size: 16px; color: #10b981; }
+    .detail-desc { background: #1e293b; padding: 20px; border-radius: 20px; color: #cbd5e1; font-size: 15px; line-height: 1.7; }
+    .photo-modal { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.95); z-index: 1000; align-items: center; justify-content: center; padding: 20px; }
+    .photo-modal.active { display: flex; }
+    .photo-modal img { max-width: 100%; max-height: 80vh; border-radius: 12px; }
+    .close-modal { position: absolute; top: 20px; right: 20px; font-size: 30px; color: #fff; cursor: pointer; }
+    @media (max-width: 600px) { .catalog { grid-template-columns: 1fr; } .detail-specs { grid-template-columns: 1fr; } }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div id="main-view">
+      <div class="header">
+        <h1>Imóveis para ${client.nome}</h1>
+        <p>Encontrei ${client.properties.length} opções exclusivas para você</p>
+      </div>
+      <div class="catalog">
+        ${client.properties.map(p => `
+          <div class="card" onclick="showDetail(${p.id})">
+            <div class="card-image">
+              <img src="${p.fotos && p.fotos.length ? p.fotos[0] : 'https://via.placeholder.com/400x250?text=Sem+Foto'}">
+              <div class="compatibility">${calculateCompatibility(client, p)}% Compatibilidade</div>
+            </div>
+            <div class="card-content">
+              <div class="card-title">${p.titulo}</div>
+              <div class="card-price">R$ ${Number(p.preco).toLocaleString('pt-BR')}</div>
+              <div class="card-info">${p.bairro} • ${p.tamanho}m² • ${p.quartos} qtos</div>
+              <div class="card-actions">
+                <div class="star-rating" onclick="event.stopPropagation()">
+                  ${[1,2,3,4,5].map(n => `<i class="fas fa-star ${n <= (p.rating || 0) ? 'active' : ''}" onclick="setRating(${p.id}, ${n})"></i>`).join('')}
+                </div>
+                <button class="btn-pdf" onclick="event.stopPropagation(); generatePDF(${p.id})">
+                  <i class="fas fa-file-pdf"></i> PDF
+                </button>
+              </div>
+            </div>
+          </div>
+        `).join('')}
+      </div>
+    </div>
+    ${client.properties.map(p => `
+      <div id="detail-${p.id}" class="detail">
+        <div class="back-btn" onclick="hideDetail()"><i class="fas fa-arrow-left"></i> Voltar</div>
+        <h2 style="font-size:28px;">${p.titulo}</h2>
+        <div class="detail-price">R$ ${Number(p.preco).toLocaleString('pt-BR')}</div>
+        <div class="detail-specs">
+          <div class="spec-item"><span>Bairro</span><b>${p.bairro}</b></div>
+          <div class="spec-item"><span>Área</span><b>${p.tamanho}m²</b></div>
+          <div class="spec-item"><span>Quartos</span><b>${p.quartos}</b></div>
+          <div class="spec-item"><span>Vagas</span><b>${p.vagas}</b></div>
+        </div>
+        <div class="detail-photos">
+          ${p.fotos.map(f => `<div class="detail-photo" onclick="zoomPhoto('${f}')"><img src="${f}"></div>`).join('')}
+        </div>
+        <div class="detail-desc">${p.descricao || 'Sem descrição adicional.'}</div>
+        <div style="margin-top:30px; text-align:center;">
+           <button class="btn-pdf" style="width:100%; justify-content:center; padding:20px;" onclick="generatePDF(${p.id})">GERAR PDF DESTE IMÓVEL</button>
+        </div>
+      </div>
+    `).join('')}
+  </div>
+  <div id="photoModal" class="photo-modal" onclick="this.classList.remove('active')">
+    <span class="close-modal">×</span>
+    <img id="modalImg">
+  </div>
+  <script>
+    const client = JSON.parse(decodeURIComponent(escape(atob('${clientDataStr}'))));
+    const broker = JSON.parse(decodeURIComponent(escape(atob('${brokerDataStr}'))));
+    function showDetail(id) {
+      document.getElementById('main-view').style.display = 'none';
+      document.querySelectorAll('.detail').forEach(d => d.style.display = 'none');
+      document.getElementById('detail-' + id).style.display = 'block';
+      window.scrollTo(0,0);
+    }
+    function hideDetail() {
+      document.getElementById('main-view').style.display = 'block';
+      document.querySelectorAll('.detail').forEach(d => d.style.display = 'none');
+    }
+    function zoomPhoto(src) {
+      document.getElementById('modalImg').src = src;
+      document.getElementById('photoModal').classList.add('active');
+    }
+    function setRating(id, val) {
+      const stars = event.currentTarget.parentElement.querySelectorAll('i');
+      stars.forEach((s, i) => s.classList.toggle('active', i < val));
+      if (window.opener) {
+        window.opener.postMessage({type:'SAVE_RATING', clientId:client.id, propId:id, rating:val}, '*');
+      }
+    }
+    function generatePDF(propId) {
+      const prop = client.properties.find(p => p.id === propId);
+      let photosHTML = '';
+      if (prop.fotos && prop.fotos.length) {
+        const photoRows = [];
+        for (let i = 0; i < prop.fotos.length; i += 3) photoRows.push(prop.fotos.slice(i, i + 3));
+        photosHTML = photoRows.map(row => '<div style="display:flex;gap:15px;margin:20px 0;page-break-inside:avoid;">' + row.map(f => '<img src="' + f + '" style="flex:1;height:200px;object-fit:cover;border-radius:12px;">').join('') + '</div>').join('');
+      }
+      const pdfHTML = '<html><head><style>@import url("https://fonts.googleapis.com/css2?family=Inter:wght@400;700&display=swap");body{font-family:"Inter",Arial,sans-serif;margin:0;padding:40px;color:#111}.header{display:flex;justify-content:space-between;align-items:center;border-bottom:3px solid #10b981;padding-bottom:20px;margin-bottom:30px}.title{margin:0;font-size:36px;color:#10b981}.subtitle{margin:5px 0 0;color:#666;font-size:18px}.compat-box{text-align:right}.compat-val{font-size:28px;font-weight:700;color:#10b981}.compat-label{font-size:11px;letter-spacing:1px;color:#999}.price{font-size:32px;font-weight:700;color:#10b981;margin:20px 0}.specs{background:#f8fafc;padding:25px;border-radius:16px;margin:30px 0;display:grid;grid-template-columns:repeat(3,1fr);gap:20px}.spec-item strong{display:block;font-size:12px;color:#64748b;text-transform:uppercase;margin-bottom:5px}.desc{font-size:16px;line-height:1.6;color:#334155;background:#fff;border-left:4px solid #10b981;padding:20px;margin:30px 0}.footer{margin-top:50px;padding-top:30px;border-top:1px solid #e2e8f0;font-size:13px;color:#64748b}</style></head><body><div class="header"><div><h1 class="title">Apresentação de Imóvel</h1><p class="subtitle">Selecionado para ' + client.nome + '</p></div><div class="compat-box"><div class="compat-val">' + (prop.compat || "100") + '%</div><div class="compat-label">COMPATIBILIDADE</div></div></div><h2 style="margin:0;font-size:24px;">' + prop.titulo + '</h2><div class="price">R$ ' + Number(prop.preco).toLocaleString("pt-BR") + '</div><div class="specs"><div class="spec-item"><strong>Bairro</strong>' + prop.bairro + '</div><div class="spec-item"><strong>Área Útil</strong>' + prop.tamanho + 'm²</div><div class="spec-item"><strong>Quartos</strong>' + prop.quartos + '</div><div class="spec-item"><strong>Vagas</strong>' + prop.vagas + '</div><div class="spec-item"><strong>Andar</strong>' + (prop.andar || "-") + '</div></div>' + photosHTML + (prop.descricao ? '<div class="desc">' + prop.descricao + '</div>' : "") + '<div class="footer"><p><strong>Corretor:</strong> ' + broker.nome + ' | <strong>Contato:</strong> ' + broker.telefone + '</p><p style="margin-top:10px;font-size:11px;">Gerado em ' + new Date().toLocaleDateString("pt-BR") + '</p></div><script>window.onload=()=>{window.print();}<\/script></body></html>';
+      const win = window.open('', '_blank');
+      win.document.write(pdfHTML);
+      win.document.close();
+    }
+  <\/script>
+</body>
+</html>`;
+      const win = window.open('', '_blank');
+      win.document.write(html);
+      win.document.close();
+    }
+
+    window.addEventListener('message', function(event) {
+      if (event.data.type === 'SAVE_RATING') {
+        const { clientId, propId, rating } = event.data;
+        const client = clients.find(c => c.id === clientId);
+        if (client) {
+          const prop = client.properties.find(p => p.id === propId);
+          if (prop) {
+            prop.rating = rating;
+            localStorage.setItem('clients', JSON.stringify(clients));
+            if (selectedClientId === clientId) renderProperties();
+          }
+        }
+      }
+    });
+
+    function showAddClientModal() { editingClientId = null; document.getElementById('modalTitle').innerHTML = `<i class="fas fa-user-plus text-emerald-400"></i> Novo Cliente`; document.getElementById('clientForm').reset(); document.getElementById('addClientModal').classList.remove('hidden'); }
+    function hideAddClientModal() { document.getElementById('addClientModal').classList.add('hidden'); }
+    function editClient() {
+      const client = clients.find(c => c.id === selectedClientId);
+      if (!client) return;
+      editingClientId = client.id;
+      document.getElementById('modalTitle').innerHTML = `<i class="fas fa-edit text-emerald-400"></i> Editar Cliente`;
+      document.getElementById('nome').value = client.nome;
+      document.getElementById('telefone').value = client.telefone;
+      document.getElementById('aniversario').value = client.aniversario || '';
+      document.getElementById('email').value = client.email || '';
+      document.getElementById('imovelDesejado').value = client.imovelDesejado || '';
+      document.getElementById('bairro').value = client.bairro || '';
+      document.getElementById('bairrosSecundarios').value = client.bairrosSecundarios || '';
+      document.getElementById('tamanho').value = client.tamanho || '';
+      document.getElementById('quartosMin').value = client.quartosMin || 2;
+      document.getElementById('vagasMin').value = client.vagasMin || 1;
+      document.getElementById('tipoVaga').value = client.tipoVaga || '';
+      document.getElementById('prefAndar').checked = !!client.prefAndar;
+      document.getElementById('andarApartir').value = client.andarApartir || '';
+      document.querySelector(`input[name="novo"][value="${client.novo || 'nao'}"]`).checked = true;
+      if (client.reformado) document.querySelector(`input[name="reformado"][value="${client.reformado}"]`).checked = true;
+      document.getElementById('sexo').value = client.sexo || '';
+      document.getElementById('estadoCivil').value = client.estadoCivil || '';
+      document.getElementById('temFilhos').checked = !!client.temFilhos;
+      document.getElementById('quantFilhos').value = client.quantFilhos || '';
+      document.getElementById('prazo').value = client.prazo || '';
+      document.getElementById('obs').value = client.obs || '';
+      document.getElementById('addClientModal').classList.remove('hidden');
+    }
+    document.getElementById('clientForm').addEventListener('submit', function(e) {
+      e.preventDefault();
+      const clientData = {
+        id: editingClientId || Date.now(),
+        nome: document.getElementById('nome').value,
+        telefone: document.getElementById('telefone').value,
+        aniversario: document.getElementById('aniversario').value,
+        email: document.getElementById('email').value,
+        imovelDesejado: document.getElementById('imovelDesejado').value,
+        bairro: document.getElementById('bairro').value,
+        bairrosSecundarios: document.getElementById('bairrosSecundarios').value,
+        tamanho: parseFloat(document.getElementById('tamanho').value) || null,
+        quartosMin: parseInt(document.getElementById('quartosMin').value),
+        vagasMin: parseInt(document.getElementById('vagasMin').value),
+        tipoVaga: document.getElementById('tipoVaga').value,
+        prefAndar: document.getElementById('prefAndar').checked,
+        andarApartir: parseInt(document.getElementById('andarApartir').value) || null,
+        novo: document.querySelector('input[name="novo"]:checked').value,
+        reformado: document.querySelector('input[name="reformado"]:checked') ? document.querySelector('input[name="reformado"]:checked').value : null,
+        sexo: document.getElementById('sexo').value,
+        estadoCivil: document.getElementById('estadoCivil').value,
+        temFilhos: document.getElementById('temFilhos').checked,
+        quantFilhos: parseInt(document.getElementById('quantFilhos').value) || 0,
+        prazo: document.getElementById('prazo').value,
+        obs: document.getElementById('obs').value,
+        createdAt: editingClientId ? clients.find(c => c.id === editingClientId).createdAt : Date.now(),
+        properties: editingClientId ? clients.find(c => c.id === editingClientId).properties || [] : []
+      };
+      if (editingClientId) { const index = clients.findIndex(c => c.id === editingClientId); if (index !== -1) clients[index] = clientData; }
+      else { clients.unshift(clientData); }
+      localStorage.setItem('clients', JSON.stringify(clients));
+      hideAddClientModal();
+      renderClientList();
+      if (!editingClientId) selectClient(clientData.id);
+    });
+    function logoutClient() { selectedClientId = null; document.getElementById('content').innerHTML = '<div class="text-center py-20"><p class="text-2xl text-gray-400">Selecione um cliente para começar</p></div>'; }
+    function init() { updateBrokerDisplay(); renderClientList(); goHome(); setTimeout(() => { const inputs = document.querySelectorAll('.mask-phone'); inputs.forEach(input => input.addEventListener('input', () => maskPhone(input))); }, 300); }
+    window.onload = init;
+  </script>
+</body>
+</html>
