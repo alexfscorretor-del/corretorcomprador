@@ -1,14 +1,27 @@
-import { ensureBucketExists } from './uploadPhotos';
+import { supabase } from './supabase';
 
 /**
- * Inicializa o armazenamento de fotos
- * Deve ser chamado uma vez quando o app inicia
+ * Inicializa o armazenamento de fotos.
+ * Em produção, a criação de bucket via client-side normalmente não é necessária;
+ * o bucket já deve existir no projeto Supabase.
+ * Esta função apenas valida acesso ao bucket configurado.
  */
-export async function initializePhotoStorage(): Promise<void> {
+export async function initializeStorage(): Promise<boolean> {
   try {
-    await ensureBucketExists();
+    const bucketName = 'property-photos';
+
+    const { data, error } = await supabase.storage.from(bucketName).list('', {
+      limit: 1,
+    });
+
+    if (error) {
+      console.error('Erro ao acessar bucket de fotos:', error.message);
+      return false;
+    }
+
+    return Array.isArray(data);
   } catch (error) {
-    console.error('Falha ao inicializar armazenamento de fotos:', error);
-    // Não interromper a aplicação se falhar
+    console.error('Erro ao inicializar storage:', error);
+    return false;
   }
 }
