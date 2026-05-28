@@ -1,12 +1,11 @@
 'use client';
 
 import { useEffect } from 'react';
-import { initializePhotoStorage } from '@/lib/initializeStorage';
+import { initializeStorage } from '@/lib/initializeStorage';
 
 export default function StorageInitializer() {
   useEffect(() => {
-    // Inicializar o armazenamento de fotos quando o app carrega
-    initializePhotoStorage();
+    void initializeStorage();
   }, []);
 
   return null;
