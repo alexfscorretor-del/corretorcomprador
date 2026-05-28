@@ -1,0 +1,10 @@
+==============================
+Corretor Pro setup log
+==============================
+Iniciando setup...
+package.json encontrado.
+.env.local encontrado.
+Nenhum compose encontrado.
+Pulando SQL local. O projeto nao tem banco local configurado aqui.
+node_modules ja existe.
+Iniciando Next.js...

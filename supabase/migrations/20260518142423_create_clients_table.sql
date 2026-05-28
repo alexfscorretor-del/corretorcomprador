@@ -1,0 +1,32 @@
+create table if not exists public.clients (
+  id uuid primary key default gen_random_uuid(),
+  created_at timestamptz not null default now(),
+  nome text not null,
+  telefone text,
+  email text,
+  cpf text,
+  preco_min numeric,
+  preco_max numeric,
+  bairro text,
+  bairros_secundarios text,
+  tipo_imovel text,
+  tamanho numeric,
+  quartos_min integer default 0,
+  suites_min integer default 0,
+  banheiros_min integer default 0,
+  vagas_min integer default 0,
+  tipo_vaga text,
+  pref_andar boolean default false,
+  andar_apartir integer,
+  condominio_max numeric,
+  novo text default 'indiferente',
+  reformado text default 'indiferente',
+  mobiliado text default 'indiferente',
+  varanda text default 'indiferente',
+  area_lazer text default 'indiferente',
+  aceita_pet text default 'indiferente',
+  aceita_financiamento text default 'indiferente',
+  observacoes text
+);
+
+alter table public.clients enable row level security;

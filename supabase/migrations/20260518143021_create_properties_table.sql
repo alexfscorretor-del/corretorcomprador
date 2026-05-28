@@ -1,0 +1,31 @@
+create table if not exists public.properties (
+  id uuid primary key default gen_random_uuid(),
+  created_at timestamptz not null default now(),
+  client_id uuid not null references public.clients(id) on delete cascade,
+  titulo text not null,
+  endereco text,
+  preco numeric,
+  area numeric,
+  quartos integer default 0,
+  suites integer default 0,
+  banheiros integer default 0,
+  vagas integer default 0,
+  tipo_imovel text,
+  tipo_vaga_cobertura text,
+  tipo_vaga_modelo text,
+  andar integer,
+  condominio numeric,
+  predio_novo text default 'nao',
+  reformado text default 'nao',
+  mobiliado boolean default false,
+  varanda boolean default false,
+  area_lazer boolean default false,
+  aceita_pet boolean default false,
+  aceita_financiamento text default 'nao',
+  bairro text,
+  descricao text,
+  favorito boolean default false,
+  avaliacao integer default 0
+);
+
+alter table public.properties enable row level security;
