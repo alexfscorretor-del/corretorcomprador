@@ -1,6 +1,6 @@
 import { supabase } from './supabase';
 
-const BUCKET_NAME = 'property-images';
+const BUCKET_NAME = 'property-photos';
 
 /**
  * Converte uma string base64 em Blob
@@ -27,7 +27,7 @@ export async function uploadPhoto(
   try {
     const timestamp = Date.now();
     const filename = `${propertyId}-${index}-${timestamp}.jpg`;
-    const folder = `property-images/${propertyId}`;
+    const folder = `property-photos/${propertyId}`;
     const filepath = `${folder}/${filename}`;
 
     const blob = base64ToBlob(base64, 'image/jpeg');
