@@ -258,13 +258,14 @@ export default function ClientForm({ initial, onSave, onCancel }: Props) {
           />
         </div>
 
+        {/* PRAZO — agora é input type date */}
         <div>
           <label className={labelClass}>Prazo para Encontrar</label>
           <input
+            type="date"
             value={form.prazo}
             onChange={(e) => set('prazo', e.target.value)}
             className={inputClass}
-            placeholder="Ex: 3 meses"
           />
         </div>
 
@@ -402,7 +403,7 @@ export default function ClientForm({ initial, onSave, onCancel }: Props) {
             <input type="number" min={0} value={form.vagasMin} onChange={(e) => set('vagasMin', e.target.value === '' ? '' : Number(e.target.value))} className={inputClass} inputMode="numeric" />
           </div>
 
-          {/* TIPO DE VAGA — 2 dimensões */}
+          {/* TIPO DE VAGA — Cobertura e Individual/Gaveta */}
           <div>
             <label className={labelClass}>Tipo de Vaga — Cobertura</label>
             <select value={form.tipoVagaCobertura} onChange={(e) => set('tipoVagaCobertura', e.target.value)} className={selectClass}>
@@ -413,11 +414,11 @@ export default function ClientForm({ initial, onSave, onCancel }: Props) {
           </div>
 
           <div>
-            <label className={labelClass}>Tipo de Vaga — Modelo</label>
+            <label className={labelClass}>Tipo de Vaga</label>
             <select value={form.tipoVagaModelo} onChange={(e) => set('tipoVagaModelo', e.target.value)} className={selectClass}>
               <option value="">Indiferente</option>
               <option value="individual">Individual</option>
-              <option value="paralela">Paralela</option>
+              <option value="gaveta">Gaveta</option>
             </select>
           </div>
 
