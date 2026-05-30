@@ -11,10 +11,6 @@ export function generateClientCatalog(client: Client, broker: Broker): void {
     (a, b) => calculateCompatibility(client, b) - calculateCompatibility(client, a)
   );
 
-  const clientDataStr = btoa(
-    unescape(encodeURIComponent(JSON.stringify({ ...client, properties: sorted })))
-  );
-  const brokerDataStr = btoa(unescape(encodeURIComponent(JSON.stringify(broker))));
   const ratingsKey = `ratings_${client.id}`;
 
   const topProp = sorted[0];
@@ -134,14 +130,22 @@ export function generateClientCatalog(client: Client, broker: Broker): void {
     const fotos = p.fotos || [];
 
     const specs: [string, string | number][] = [
-      ['Tipo', p.tipoImovel || '-'],
-      ['Bairro', p.bairro || '-'],
-      ['\u00c1rea', (p.tamanho || '?') + 'm\u00b2'],
-      ['Quartos', p.quartos ?? '-'],
-      ['Su\u00edtes', p.suites ?? '-'],
-      ['Banheiros', p.banheiros ?? '-'],
-      ['Vagas', p.vagas ?? '-'],
-      ['Andar', p.andar ?? '-'],
+      ['TIPO', p.tipoImovel || '-'],
+      ['BAIRRO', p.bairro || '-'],
+      ['\u00c1REA', (p.tamanho || '?') + 'm\u00b2'],
+      ['QUARTOS', p.quartos ?? '-'],
+      ['SU\u00cdTES', p.suites ?? '-'],
+      ['BANHEIROS', p.banheiros ?? '-'],
+      ['VAGAS', p.vagas ?? '-'],
+      ['ANDAR', p.andar ?? '-'],
+      ['CONDOM\u00cdNIO', p.condominio ? 'R$ ' + Number(p.condominio).toLocaleString('pt-BR', { minimumFractionDigits: 2 }) : '-'],
+      ['PR\u00c9DIO NOVO', p.predioNovo || '-'],
+      ['REFORMADO', p.reformado || '-'],
+      ['MOBILIADO', p.mobiliado ? 'Sim' : 'N\u00e3o'],
+      ['VARANDA', p.varanda ? 'Sim' : 'N\u00e3o'],
+      ['\u00c1REA LAZER', p.areaLazer ? 'Sim' : 'N\u00e3o'],
+      ['PET', p.aceitaPet ? 'Sim' : 'N\u00e3o'],
+      ['FINANCIAMENTO', p.aceitaFinanciamento || '-'],
     ];
 
     return {
@@ -329,6 +333,11 @@ ${detailModals}
 <script>
 const RATINGS_KEY = '${ratingsKey}';
 const PRINT_CARDS = ${JSON.stringify(printCardsData)};
+const BROKER_NOME = ${JSON.stringify(brokerNome)};
+const BROKER_EMPRESA = ${JSON.stringify(brokerEmpresa)};
+const BROKER_TELEFONE = ${JSON.stringify(brokerTelefone)};
+const BROKER_EMAIL = ${JSON.stringify(brokerEmail)};
+const CLIENT_NOME = ${JSON.stringify(client.nome)};
 
 function openDetail(id) {
   document.getElementById('modal-' + id)?.classList.add('open');
@@ -378,26 +387,166 @@ function printCard(id) {
   const card = PRINT_CARDS.find(c => c.id === id);
   if (!card) return;
 
+  const now = new Date().toLocaleDateString('pt-BR');
+
   const specsHtml = card.specs
-    .map(([l, v]) => '<div class="ps"><strong>' + l + '</strong><span>' + v + '</span></div>')
+    .map(function(s) {
+      return '<div class="ps"><strong>' + s[0] + '</strong><span>' + s[1] + '</span></div>';
+    })
     .join('');
 
-  const fotosHtml = card.fotos.length
-    ? '<div class="pf">' + card.fotos.map(f => '<img src="' + f + '" alt="">').join('') + '</div>'
-    : (card.imgSrc ? '<img src="' + card.imgSrc + '" class="pi" alt="">' : '');
+  const fotosPrincipal = card.imgSrc
+    ? '<img src="' + card.imgSrc + '" class="foto-principal" alt="">'
+    : '';
 
-  const w = window.open('', '_blank', 'width=900,height=700');
-  if (!w) return;
-  w.document.write('<!DOCTYPE html><html lang="pt-BR"><head><meta charset="UTF-8"><title>' + card.titulo + '</title><link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet"><style>*{box-sizing:border-box;margin:0;padding:0}body{font-family:Inter,sans-serif;padding:32px;color:#111;background:#fff;max-width:800px;margin:auto}.header{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:24px;padding-bottom:16px;border-bottom:2px solid #e50914}.hname{font-size:22px;font-weight:700;line-height:1.2}.hprice{font-size:26px;font-weight:700;color:#e50914}.hbairro{font-size:13px;color:#666;margin-top:4px}.compat{display:inline-block;background:#fef2f2;color:#b91c1c;border:1px solid #fca5a5;border-radius:20px;padding:3px 10px;font-size:11px;font-weight:700;margin-top:6px}.pi{width:100%;max-height:280px;object-fit:cover;border-radius:10px;margin:16px 0}.pf{display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:8px;margin:16px 0}.pf img{width:100%;height:130px;object-fit:cover;border-radius:8px}.specs{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin:16px 0}.ps strong{display:block;font-size:9px;color:#888;text-transform:uppercase;margin-bottom:2px}.ps span{font-size:13px;font-weight:600}.desc{font-size:13px;color:#444;line-height:1.6;margin-top:12px;border-left:3px solid #e50914;padding-left:10px}.footer{margin-top:24px;padding-top:16px;border-top:1px solid #ddd;font-size:12px;color:#666;display:flex;justify-content:space-between}@media print{button{display:none}}</style></head><body>');
-  w.document.write('<div class="header"><div><div class="hname">' + card.titulo + '</div><div class="hbairro">' + card.bairro + '</div><div class="compat">' + card.cp + '% Compat\u00edvel</div></div><div class="hprice">R$\u00a0' + card.preco + '</div></div>');
-  w.document.write(fotosHtml);
-  w.document.write('<div class="specs">' + specsHtml + '</div>');
-  if (card.descricao) w.document.write('<div class="desc">' + card.descricao + '</div>');
-  w.document.write('<div class="footer"><span>${brokerNome}</span><span>${brokerTelefone}</span></div>');
-  w.document.write('</body></html>');
-  w.document.close();
-  w.focus();
-  setTimeout(() => w.print(), 600);
+  const fotosExtras = card.fotos.length > 1
+    ? '<div class="fotos-grid">' + card.fotos.slice(1).map(function(f) {
+        return '<img src="' + f + '" alt="">';
+      }).join('') + '</div>'
+    : '';
+
+  const htmlPdf = '<!DOCTYPE html>' +
+    '<html lang="pt-BR"><head>' +
+    '<meta charset="UTF-8">' +
+    '<title>Apresenta\u00e7\u00e3o - ' + card.titulo + '</title>' +
+    '<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">' +
+    '<style>' +
+    '*{box-sizing:border-box;margin:0;padding:0}' +
+    'body{font-family:Inter,sans-serif;background:#fff;color:#111;padding:0}' +
+    '@page{size:A4;margin:0}' +
+
+    /* ── PÁGINA 1 ── */
+    '.pagina{width:210mm;min-height:297mm;padding:12mm 14mm;display:flex;flex-direction:column;page-break-after:always}' +
+    '.pagina:last-child{page-break-after:auto}' +
+
+    /* cabeçalho vermelho */
+    '.cabecalho{background:#e50914;color:#fff;border-radius:12px;padding:18px 22px;display:flex;justify-content:space-between;align-items:center;margin-bottom:16px}' +
+    '.cab-titulo{font-size:11px;font-weight:600;letter-spacing:.12em;text-transform:uppercase;opacity:.85;margin-bottom:4px}' +
+    '.cab-bairro{font-size:26px;font-weight:700;line-height:1.1}' +
+    '.cab-para-label{font-size:10px;opacity:.75;text-align:right;margin-bottom:3px}' +
+    '.cab-para-nome{font-size:16px;font-weight:700;text-align:right}' +
+
+    /* seção corretor */
+    '.corretor-box{background:#f8f8f8;border-radius:10px;padding:14px 18px;display:flex;justify-content:space-between;align-items:center;margin-bottom:16px}' +
+    '.corretor-label{font-size:9px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:#888;margin-bottom:6px}' +
+    '.corretor-nome{font-size:18px;font-weight:700;color:#111;margin-bottom:2px}' +
+    '.corretor-empresa{font-size:12px;color:#555;margin-bottom:4px}' +
+    '.corretor-contatos{font-size:12px;color:#333}' +
+    '.compat-box{text-align:center;background:#e50914;color:#fff;border-radius:10px;padding:12px 20px;min-width:110px}' +
+    '.compat-num{font-size:32px;font-weight:700;line-height:1}' +
+    '.compat-label{font-size:9px;font-weight:600;letter-spacing:.1em;text-transform:uppercase;opacity:.85;margin-top:2px}' +
+
+    /* preço */
+    '.preco-row{display:flex;justify-content:space-between;align-items:center;margin-bottom:14px}' +
+    '.preco{font-size:28px;font-weight:700;color:#e50914}' +
+    '.titulo-imovel{font-size:14px;font-weight:600;color:#333}' +
+
+    /* foto principal */
+    '.foto-principal{width:100%;max-height:200px;object-fit:cover;border-radius:10px;margin-bottom:14px}' +
+
+    /* specs grid */
+    '.specs-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:14px}' +
+    '.ps{background:#f8f8f8;border-radius:8px;padding:8px 10px}' +
+    '.ps strong{display:block;font-size:8px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:#888;margin-bottom:3px}' +
+    '.ps span{font-size:13px;font-weight:600;color:#111}' +
+
+    /* fotos extras */
+    '.fotos-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin-bottom:14px}' +
+    '.fotos-grid img{width:100%;height:90px;object-fit:cover;border-radius:8px}' +
+
+    /* descrição */
+    '.descricao{font-size:12px;color:#444;line-height:1.6;border-left:3px solid #e50914;padding-left:10px;margin-bottom:14px}' +
+
+    /* rodapé p1 */
+    '.rodape{margin-top:auto;padding-top:12px;border-top:1px solid #eee;display:flex;justify-content:space-between;align-items:center;font-size:10px;color:#888}' +
+    '.rodape-marca{font-size:13px;font-weight:700;color:#e50914}' +
+
+    /* ── PÁGINA 2 ── */
+    '.p2-titulo{font-size:18px;font-weight:700;color:#111;margin-bottom:4px}' +
+    '.p2-sub{font-size:13px;color:#555;margin-bottom:20px}' +
+    '.p2-atendimento{background:#f8f8f8;border-radius:10px;padding:18px 22px;margin-bottom:20px}' +
+    '.p2-at-label{font-size:9px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:#888;margin-bottom:10px}' +
+    '.p2-at-nome{font-size:18px;font-weight:700;color:#111;margin-bottom:4px}' +
+    '.p2-at-contato{font-size:13px;color:#333;margin-bottom:2px}' +
+    '.p2-nota{font-size:11px;color:#888;line-height:1.6;margin-top:20px}' +
+    '@media print{button{display:none!important}}' +
+    '</style></head><body>' +
+
+    /* ══ PÁGINA 1 ══ */
+    '<div class="pagina">' +
+
+    '<div class="cabecalho">' +
+    '<div><div class="cab-titulo">Apresenta\u00e7\u00e3o de Im\u00f3vel</div>' +
+    '<div class="cab-bairro">' + (card.bairro || card.titulo) + '</div></div>' +
+    '<div><div class="cab-para-label">Para:</div>' +
+    '<div class="cab-para-nome">' + CLIENT_NOME + '</div></div>' +
+    '</div>' +
+
+    '<div class="corretor-box">' +
+    '<div><div class="corretor-label">Corretor Respons\u00e1vel</div>' +
+    '<div class="corretor-nome">' + BROKER_NOME + '</div>' +
+    (BROKER_EMPRESA ? '<div class="corretor-empresa">' + BROKER_EMPRESA + '</div>' : '') +
+    '<div class="corretor-contatos">' +
+    (BROKER_EMAIL ? BROKER_EMAIL + '<br>' : '') +
+    (BROKER_TELEFONE ? BROKER_TELEFONE : '') +
+    '</div></div>' +
+    '<div class="compat-box"><div class="compat-num">' + card.cp + '%</div>' +
+    '<div class="compat-label">Compatibilidade</div></div>' +
+    '</div>' +
+
+    '<div class="preco-row">' +
+    '<div class="preco">R$\u00a0' + card.preco + '</div>' +
+    '<div class="titulo-imovel">' + card.titulo + '</div>' +
+    '</div>' +
+
+    fotosPrincipal +
+
+    '<div class="specs-grid">' + specsHtml + '</div>' +
+
+    (card.descricao ? '<div class="descricao">' + card.descricao + '</div>' : '') +
+
+    '<div class="rodape">' +
+    '<div><div class="rodape-marca">' + BROKER_NOME + '</div>' +
+    (BROKER_TELEFONE ? '<div>' + BROKER_TELEFONE + '</div>' : '') + '</div>' +
+    '<div>' + now + '</div>' +
+    '</div>' +
+    '</div>' +
+
+    /* ══ PÁGINA 2 ══ */
+    '<div class="pagina">' +
+    '<div class="cabecalho">' +
+    '<div><div class="cab-titulo">Detalhes do Im\u00f3vel</div>' +
+    '<div class="cab-bairro">' + card.titulo + '</div></div>' +
+    '<div><div class="cab-para-label">Para:</div>' +
+    '<div class="cab-para-nome">' + CLIENT_NOME + '</div></div>' +
+    '</div>' +
+
+    (card.fotos.length > 1 ? fotosExtras : '') +
+
+    '<div class="p2-atendimento">' +
+    '<div class="p2-at-label">Atendimento</div>' +
+    '<div class="p2-at-nome">' + BROKER_NOME + '</div>' +
+    (BROKER_TELEFONE ? '<div class="p2-at-contato">Contato: ' + BROKER_TELEFONE + (BROKER_EMPRESA ? '\u00a0\u00a0|\u00a0\u00a0' + BROKER_EMPRESA : '') + '</div>' : '') +
+    '<div class="p2-nota">Documento gerado para apresenta\u00e7\u00e3o do im\u00f3vel ao cliente.</div>' +
+    '</div>' +
+
+    '<div class="rodape">' +
+    '<div><div class="rodape-marca">' + BROKER_NOME + '</div></div>' +
+    '<div>' + now + '</div>' +
+    '</div>' +
+    '</div>' +
+
+    '</body></html>';
+
+  const blob = new Blob([htmlPdf], { type: 'text/html;charset=utf-8' });
+  const url = URL.createObjectURL(blob);
+  const w = window.open(url, '_blank');
+  if (w) {
+    w.addEventListener('load', function() {
+      setTimeout(function() { w.print(); }, 600);
+    });
+  }
+  setTimeout(function() { URL.revokeObjectURL(url); }, 120000);
 }
 <\/script>
 </body>
