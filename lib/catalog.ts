@@ -20,7 +20,6 @@ export function generateClientCatalog(client: Client, broker: Broker): void {
   const topProp = sorted[0];
   const cpTop = calculateCompatibility(client, topProp);
   const topImg = topProp.fotos?.[0] || '';
-  const topDesc = topProp.descricao ? topProp.descricao.substring(0, 150) + '...' : '';
 
   const brokerNome =
     (broker as any).nomeExibicao ||
@@ -32,6 +31,7 @@ export function generateClientCatalog(client: Client, broker: Broker): void {
   const brokerTelefone = (broker as any).telefone || broker.telefone || '';
   const brokerEmail = (broker as any).email || '';
 
+  /* ─── CARDS ─────────────────────────────────────────────────────────── */
   const cards = sorted
     .map((p) => {
       const cp = calculateCompatibility(client, p);
@@ -41,111 +41,130 @@ export function generateClientCatalog(client: Client, broker: Broker): void {
           (n) =>
             `<span class="star" data-id="${p.id}" data-val="${n}" style="color:${
               (p.rating || 0) >= n ? '#facc15' : '#3f3f46'
-            };cursor:pointer;font-size:20px;">★</span>`
+            };cursor:pointer;font-size:20px;">&#9733;</span>`
         )
         .join('');
 
       return `
-    <div class="card" data-id="${p.id}">
-      ${
-        imgSrc
-          ? `<img src="${imgSrc}" class="card-img" alt="${p.titulo}" loading="lazy">`
-          : '<div class="card-img-placeholder"></div>'
-      }
-      <div class="card-body">
-        <div class="card-top">
-          <span class="compat-badge">${cp}% Compatível</span>
-          <span class="price-sm">R$ ${Number(p.preco).toLocaleString('pt-BR', {
-            minimumFractionDigits: 2,
-          })}</span>
-        </div>
-        <h3 class="card-title">${p.titulo}</h3>
-        <p class="card-bairro">${p.bairro || ''}</p>
-        <div class="card-specs">
-          ${p.quartos != null ? `<span>🛏 ${p.quartos} quartos</span>` : ''}
-          ${p.suites != null ? `<span>🚿 ${p.suites} suítes</span>` : ''}
-          ${p.vagas != null ? `<span>🚗 ${p.vagas} vagas</span>` : ''}
-          ${p.tamanho != null ? `<span>📐 ${p.tamanho}m²</span>` : ''}
-        </div>
-        <div class="stars-row" data-id="${p.id}">${stars}</div>
-        ${p.descricao ? `<p class="card-desc">${p.descricao}</p>` : ''}
-        <button class="btn-detail" onclick="openDetail('${p.id}')">Ver detalhes</button>
-      </div>
-    </div>`;
+<div class="card" data-id="${p.id}">
+  ${
+    imgSrc
+      ? `<img src="${imgSrc}" class="card-img" alt="${p.titulo}" loading="lazy">`
+      : '<div class="card-img-placeholder"></div>'
+  }
+  <div class="card-body">
+    <div class="card-top">
+      <span class="compat-badge">${cp}% Compat\u00edvel</span>
+      <span class="price-sm">R$\u00a0${Number(p.preco).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
+    </div>
+    <h3 class="card-title">${p.titulo}</h3>
+    <p class="card-bairro">${p.bairro || ''}</p>
+    <div class="card-specs">
+      ${p.quartos != null ? `<span>&#x1F6CF; ${p.quartos} quartos</span>` : ''}
+      ${p.suites != null ? `<span>&#x1F6BF; ${p.suites} su\u00edtes</span>` : ''}
+      ${p.vagas != null ? `<span>&#x1F697; ${p.vagas} vagas</span>` : ''}
+      ${p.tamanho != null ? `<span>&#x1F4D0; ${p.tamanho}m\u00b2</span>` : ''}
+    </div>
+    <div class="stars-row" data-id="${p.id}">${stars}</div>
+    ${p.descricao ? `<p class="card-desc">${p.descricao}</p>` : ''}
+    <div class="card-actions">
+      <button class="btn-detail" onclick="openDetail('${p.id}')">Ver detalhes</button>
+      <button class="btn-pdf" onclick="printCard('${p.id}')">&#x1F4C4; PDF</button>
+    </div>
+  </div>
+</div>`;
     })
     .join('');
 
+  /* ─── MODAIS ─────────────────────────────────────────────────────────── */
   const detailModals = sorted
     .map((p) => {
       const cp = calculateCompatibility(client, p);
       const fotos = p.fotos || [];
       const fotosH = fotos.length
-        ? `<div class="detail-photos">${fotos
-            .map((f) => `<img src="${f}" alt="" loading="lazy">`)
-            .join('')}</div>`
+        ? `<div class="detail-photos">${fotos.map((f) => `<img src="${f}" alt="" loading="lazy">`).join('')}</div>`
         : '';
 
       const specs: [string, string | number][] = [
         ['Tipo', p.tipoImovel || '-'],
         ['Bairro', p.bairro || '-'],
-        ['Área', (p.tamanho || '?') + 'm²'],
+        ['\u00c1rea', (p.tamanho || '?') + 'm\u00b2'],
         ['Quartos', p.quartos ?? '-'],
-        ['Suítes', p.suites ?? '-'],
+        ['Su\u00edtes', p.suites ?? '-'],
         ['Banheiros', p.banheiros ?? '-'],
         ['Vagas', p.vagas ?? '-'],
         ['Andar', p.andar ?? '-'],
-        [
-          'Condomínio',
-          p.condominio
-            ? 'R$ ' +
-              Number(p.condominio).toLocaleString('pt-BR', {
-                minimumFractionDigits: 2,
-              })
-            : '-',
-        ],
-        ['Prédio Novo', p.predioNovo || '-'],
+        ['Condom\u00ednio', p.condominio ? 'R$ ' + Number(p.condominio).toLocaleString('pt-BR', { minimumFractionDigits: 2 }) : '-'],
+        ['Pr\u00e9dio Novo', p.predioNovo || '-'],
         ['Reformado', p.reformado || '-'],
-        ['Mobiliado', p.mobiliado ? 'Sim' : 'Não'],
-        ['Varanda', p.varanda ? 'Sim' : 'Não'],
-        ['Área Lazer', p.areaLazer ? 'Sim' : 'Não'],
-        ['Pet', p.aceitaPet ? 'Sim' : 'Não'],
+        ['Mobiliado', p.mobiliado ? 'Sim' : 'N\u00e3o'],
+        ['Varanda', p.varanda ? 'Sim' : 'N\u00e3o'],
+        ['\u00c1rea Lazer', p.areaLazer ? 'Sim' : 'N\u00e3o'],
+        ['Pet', p.aceitaPet ? 'Sim' : 'N\u00e3o'],
         ['Financiamento', p.aceitaFinanciamento || '-'],
       ];
 
       const specsH = specs
-        .map(
-          ([l, v]) => `<div class="dspec"><strong>${l}</strong><span>${v}</span></div>`
-        )
+        .map(([l, v]) => `<div class="dspec"><strong>${l}</strong><span>${v}</span></div>`)
         .join('');
 
       return `
-    <div class="modal-overlay" id="modal-${p.id}" onclick="if(event.target===this)closeDetail('${p.id}')">
-      <div class="modal-box">
-        <button class="modal-close" onclick="closeDetail('${p.id}')">✕</button>
-        <div class="modal-compat">${cp}% compatível</div>
-        <h2 class="modal-title">${p.titulo}</h2>
-        <div class="modal-price">R$ ${Number(p.preco).toLocaleString('pt-BR', {
-          minimumFractionDigits: 2,
-        })}</div>
-        ${fotosH}
-        <div class="dspecs-grid">${specsH}</div>
-        ${p.descricao ? `<div class="modal-desc">${p.descricao}</div>` : ''}
-        ${
-          p.link
-            ? `<p style="margin:12px 0"><a href="${p.link}" target="_blank" rel="noopener noreferrer" style="color:#e50914">Ver anúncio ↗</a></p>`
-            : ''
-        }
-      </div>
-    </div>`;
+<div class="modal-overlay" id="modal-${p.id}" onclick="if(event.target===this)closeDetail('${p.id}')">
+  <div class="modal-box">
+    <div class="modal-header">
+      <button class="modal-close" onclick="closeDetail('${p.id}')">&#x2715;</button>
+      <button class="modal-pdf-btn" onclick="printCard('${p.id}')">&#x1F4C4; Gerar PDF</button>
+    </div>
+    <div class="modal-compat">${cp}% compat\u00edvel</div>
+    <h2 class="modal-title">${p.titulo}</h2>
+    <div class="modal-price">R$\u00a0${Number(p.preco).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</div>
+    ${fotosH}
+    <div class="dspecs-grid">${specsH}</div>
+    ${p.descricao ? `<div class="modal-desc">${p.descricao}</div>` : ''}
+    ${p.link ? `<p style="margin:12px 0"><a href="${p.link}" target="_blank" rel="noopener noreferrer" style="color:#e50914">Ver an\u00fancio &#x2197;</a></p>` : ''}
+  </div>
+</div>`;
     })
     .join('');
 
+  /* ─── PRINT CARDS DATA ────────────────────────────────────────────────── */
+  const printCardsData = sorted.map((p) => {
+    const cp = calculateCompatibility(client, p);
+    const imgSrc = p.fotos?.[0] || '';
+    const fotos = p.fotos || [];
+
+    const specs: [string, string | number][] = [
+      ['Tipo', p.tipoImovel || '-'],
+      ['Bairro', p.bairro || '-'],
+      ['\u00c1rea', (p.tamanho || '?') + 'm\u00b2'],
+      ['Quartos', p.quartos ?? '-'],
+      ['Su\u00edtes', p.suites ?? '-'],
+      ['Banheiros', p.banheiros ?? '-'],
+      ['Vagas', p.vagas ?? '-'],
+      ['Andar', p.andar ?? '-'],
+    ];
+
+    return {
+      id: p.id,
+      titulo: p.titulo,
+      bairro: p.bairro || '',
+      preco: Number(p.preco).toLocaleString('pt-BR', { minimumFractionDigits: 2 }),
+      cp,
+      imgSrc,
+      fotos,
+      specs,
+      descricao: p.descricao || '',
+      link: p.link || '',
+    };
+  });
+
+  /* ─── HTML ───────────────────────────────────────────────────────────── */
   const html = `<!DOCTYPE html>
 <html lang="pt-BR">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Imóveis para ${client.nome}</title>
+<title>Im\u00f3veis para ${client.nome}</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,600;1,400&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -164,13 +183,12 @@ ${topImg ? `.hero::before{content:'';position:absolute;inset:0;background:url('$
 .hero-meta{display:flex;flex-wrap:wrap;gap:18px;margin-top:14px;font-size:14px;font-weight:600;color:#f4f4f5}
 .hero-meta .compat{color:#4ade80}
 .hero-actions{display:flex;gap:12px;flex-wrap:wrap;margin-top:26px}
-.hero-btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;padding:13px 18px;border-radius:14px;text-decoration:none;font-size:14px;font-weight:700;transition:.2s}
+.hero-btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;padding:13px 18px;border-radius:14px;text-decoration:none;font-size:14px;font-weight:700;transition:.2s;cursor:pointer;border:none}
 .hero-btn-primary{background:#fff;color:#111}
 .hero-btn-primary:hover{background:#e4e4e7}
 .hero-btn-secondary{background:rgba(255,255,255,.12);border:1px solid rgba(255,255,255,.12);color:#fff}
 .hero-btn-secondary:hover{background:rgba(255,255,255,.18)}
 .hero-client-line{margin-top:12px;font-size:14px;color:#e4e4e7;font-weight:600}
-
 .hero-right{min-width:260px;max-width:340px;text-align:right;display:flex;flex-direction:column;align-items:flex-end;gap:4px}
 .hero-broker-label{font-size:11px;color:#71717a;letter-spacing:.06em;text-transform:uppercase;margin-bottom:8px}
 .hero-broker-name{font-family:'Cormorant Garamond',serif;font-size:clamp(28px,4vw,44px);font-weight:600;color:#e50914;font-style:italic;line-height:1.05}
@@ -203,15 +221,21 @@ ${topImg ? `.hero::before{content:'';position:absolute;inset:0;background:url('$
 .card-specs span{background:#27272a;border-radius:6px;padding:3px 8px;font-size:11px;color:#d4d4d8}
 .stars-row{margin:8px 0;user-select:none}
 .card-desc{font-size:12px;color:#a1a1aa;margin-top:8px;line-height:1.5;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden}
-.btn-detail{margin-top:12px;width:100%;padding:10px;border-radius:10px;border:1px solid #3f3f46;background:transparent;color:#e4e4e7;font-size:12px;font-weight:700;cursor:pointer;transition:all .2s}
+.card-actions{display:flex;gap:8px;margin-top:12px}
+.btn-detail{flex:1;padding:10px;border-radius:10px;border:1px solid #3f3f46;background:transparent;color:#e4e4e7;font-size:12px;font-weight:700;cursor:pointer;transition:all .2s}
 .btn-detail:hover{background:#27272a;color:#fff;border-color:#52525b}
+.btn-pdf{padding:10px 14px;border-radius:10px;border:1px solid rgba(229,9,20,.4);background:rgba(229,9,20,.1);color:#ff4d57;font-size:12px;font-weight:700;cursor:pointer;transition:all .2s;white-space:nowrap}
+.btn-pdf:hover{background:rgba(229,9,20,.2);border-color:#e50914}
 
 /* MODAL */
 .modal-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.85);z-index:999;overflow-y:auto;padding:20px}
 .modal-overlay.open{display:flex;align-items:flex-start;justify-content:center}
 .modal-box{background:#18181b;border:1px solid #27272a;border-radius:20px;width:100%;max-width:700px;padding:28px;position:relative;margin:auto}
-.modal-close{position:absolute;top:16px;right:16px;background:#27272a;border:none;color:#a1a1aa;width:32px;height:32px;border-radius:50%;cursor:pointer;font-size:16px;display:flex;align-items:center;justify-content:center}
+.modal-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:12px}
+.modal-close{background:#27272a;border:none;color:#a1a1aa;width:32px;height:32px;border-radius:50%;cursor:pointer;font-size:16px;display:flex;align-items:center;justify-content:center}
 .modal-close:hover{background:#3f3f46;color:#fff}
+.modal-pdf-btn{display:inline-flex;align-items:center;gap:6px;padding:8px 14px;border-radius:10px;border:1px solid rgba(229,9,20,.4);background:rgba(229,9,20,.1);color:#ff4d57;font-size:12px;font-weight:700;cursor:pointer;transition:all .2s}
+.modal-pdf-btn:hover{background:rgba(229,9,20,.2);border-color:#e50914}
 .modal-compat{display:inline-block;background:rgba(229,9,20,.15);color:#ff4d57;border:1px solid rgba(229,9,20,.3);border-radius:20px;padding:4px 12px;font-size:12px;font-weight:700;margin-bottom:10px}
 .modal-title{font-size:22px;font-weight:700;color:#fff;margin-bottom:6px}
 .modal-price{font-size:26px;font-weight:700;color:#e50914;margin-bottom:16px}
@@ -221,6 +245,21 @@ ${topImg ? `.hero::before{content:'';position:absolute;inset:0;background:url('$
 .dspec strong{display:block;font-size:10px;color:#71717a;text-transform:uppercase;margin-bottom:2px}
 .dspec span{font-size:13px;color:#e4e4e7}
 .modal-desc{font-size:13px;color:#a1a1aa;line-height:1.6;border-left:3px solid #e50914;padding-left:12px}
+
+/* PRINT */
+@media print{
+  body{background:#fff;color:#111}
+  .hero,.section-title,.hero-actions,.stars-row,.card-actions,.modal-overlay,footer{display:none!important}
+  .grid{display:block}
+  .card{break-inside:avoid;border:1px solid #ddd;background:#fff;margin-bottom:20px;page-break-inside:avoid}
+  .card-img{max-height:220px}
+  .compat-badge{background:#fef2f2;color:#b91c1c;border-color:#fca5a5}
+  .card-title,.price-sm{color:#111}
+  .card-bairro,.card-desc{color:#555}
+  .card-specs span{background:#f3f4f6;color:#374151}
+  .print-only{display:block!important}
+}
+.print-only{display:none}
 
 /* FOOTER */
 .footer{border-top:1px solid #1c1c1e;padding:40px 24px;text-align:center}
@@ -242,34 +281,29 @@ ${topImg ? `.hero::before{content:'';position:absolute;inset:0;background:url('$
 <div class="hero">
   <div class="hero-inner">
     <div class="hero-left">
-      <p class="hero-greeting">Seleção de imóveis preparada para você</p>
+      <p class="hero-greeting">Sele\u00e7\u00e3o de im\u00f3veis preparada para voc\u00ea</p>
       <h1 class="hero-name">${topProp.titulo}</h1>
-
       <div class="hero-meta">
-        <span class="compat">${cpTop}% Compatível</span>
+        <span class="compat">${cpTop}% Compat\u00edvel</span>
         ${topProp.quartos != null ? `<span>${topProp.quartos} Quartos</span>` : ''}
         ${topProp.bairro ? `<span>${topProp.bairro}</span>` : ''}
       </div>
-
       <div class="hero-actions">
-        <a href="javascript:void(0)" class="hero-btn hero-btn-primary" onclick="openDetail('${topProp.id}')">▶ Ver Detalhes</a>
-        <a href="javascript:void(0)" class="hero-btn hero-btn-secondary" onclick="window.print()">📄 PDF</a>
+        <button class="hero-btn hero-btn-primary" onclick="openDetail('${topProp.id}')">&#x25B6; Ver Detalhes</button>
+        <button class="hero-btn hero-btn-secondary" onclick="window.print()">&#x1F4C4; Imprimir / PDF</button>
       </div>
-
       <div class="hero-client-line">Selecionados para ${client.nome}</div>
     </div>
-
     <div class="hero-right">
-      <div class="hero-broker-label">Corretor responsável</div>
+      <div class="hero-broker-label">Corretor respons\u00e1vel</div>
       <div class="hero-broker-name">${brokerNome}</div>
       ${brokerEmpresa ? `<div class="hero-broker-sub">${brokerEmpresa}</div>` : ''}
       ${brokerTelefone ? `<div class="hero-broker-phone">${brokerTelefone}</div>` : ''}
       ${brokerEmail ? `<div class="hero-broker-email">${brokerEmail}</div>` : ''}
-
       <div class="hero-compat">
         <div class="hero-compat-num">${cpTop}%</div>
         <div class="hero-compat-label">Compatibilidade</div>
-        <div class="hero-feat-title">Imóvel em destaque</div>
+        <div class="hero-feat-title">Im\u00f3vel em destaque</div>
         <div class="hero-feat-name">${topProp.titulo}</div>
       </div>
     </div>
@@ -277,7 +311,7 @@ ${topImg ? `.hero::before{content:'';position:absolute;inset:0;background:url('$
 </div>
 
 <div class="section">
-  <p class="section-title">Imóveis selecionados para você</p>
+  <p class="section-title">Im\u00f3veis selecionados para voc\u00ea</p>
   <div class="grid" id="cards-grid">
     ${cards}
   </div>
@@ -294,8 +328,7 @@ ${detailModals}
 
 <script>
 const RATINGS_KEY = '${ratingsKey}';
-const CLIENT_DATA = JSON.parse(decodeURIComponent(escape(atob('${clientDataStr}'))));
-const BROKER_DATA = JSON.parse(decodeURIComponent(escape(atob('${brokerDataStr}'))));
+const PRINT_CARDS = ${JSON.stringify(printCardsData)};
 
 function openDetail(id) {
   document.getElementById('modal-' + id)?.classList.add('open');
@@ -340,6 +373,32 @@ document.querySelectorAll('.star').forEach(star => {
   });
 });
 applyRatings();
+
+function printCard(id) {
+  const card = PRINT_CARDS.find(c => c.id === id);
+  if (!card) return;
+
+  const specsHtml = card.specs
+    .map(([l, v]) => '<div class="ps"><strong>' + l + '</strong><span>' + v + '</span></div>')
+    .join('');
+
+  const fotosHtml = card.fotos.length
+    ? '<div class="pf">' + card.fotos.map(f => '<img src="' + f + '" alt="">').join('') + '</div>'
+    : (card.imgSrc ? '<img src="' + card.imgSrc + '" class="pi" alt="">' : '');
+
+  const w = window.open('', '_blank', 'width=900,height=700');
+  if (!w) return;
+  w.document.write('<!DOCTYPE html><html lang="pt-BR"><head><meta charset="UTF-8"><title>' + card.titulo + '</title><link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet"><style>*{box-sizing:border-box;margin:0;padding:0}body{font-family:Inter,sans-serif;padding:32px;color:#111;background:#fff;max-width:800px;margin:auto}.header{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:24px;padding-bottom:16px;border-bottom:2px solid #e50914}.hname{font-size:22px;font-weight:700;line-height:1.2}.hprice{font-size:26px;font-weight:700;color:#e50914}.hbairro{font-size:13px;color:#666;margin-top:4px}.compat{display:inline-block;background:#fef2f2;color:#b91c1c;border:1px solid #fca5a5;border-radius:20px;padding:3px 10px;font-size:11px;font-weight:700;margin-top:6px}.pi{width:100%;max-height:280px;object-fit:cover;border-radius:10px;margin:16px 0}.pf{display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:8px;margin:16px 0}.pf img{width:100%;height:130px;object-fit:cover;border-radius:8px}.specs{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin:16px 0}.ps strong{display:block;font-size:9px;color:#888;text-transform:uppercase;margin-bottom:2px}.ps span{font-size:13px;font-weight:600}.desc{font-size:13px;color:#444;line-height:1.6;margin-top:12px;border-left:3px solid #e50914;padding-left:10px}.footer{margin-top:24px;padding-top:16px;border-top:1px solid #ddd;font-size:12px;color:#666;display:flex;justify-content:space-between}@media print{button{display:none}}</style></head><body>');
+  w.document.write('<div class="header"><div><div class="hname">' + card.titulo + '</div><div class="hbairro">' + card.bairro + '</div><div class="compat">' + card.cp + '% Compat\u00edvel</div></div><div class="hprice">R$\u00a0' + card.preco + '</div></div>');
+  w.document.write(fotosHtml);
+  w.document.write('<div class="specs">' + specsHtml + '</div>');
+  if (card.descricao) w.document.write('<div class="desc">' + card.descricao + '</div>');
+  w.document.write('<div class="footer"><span>${brokerNome}</span><span>${brokerTelefone}</span></div>');
+  w.document.write('</body></html>');
+  w.document.close();
+  w.focus();
+  setTimeout(() => w.print(), 600);
+}
 <\/script>
 </body>
 </html>`;
