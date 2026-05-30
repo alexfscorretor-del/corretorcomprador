@@ -11,10 +11,6 @@ export function generateClientCatalog(client: Client, broker: Broker): void {
     (a, b) => calculateCompatibility(client, b) - calculateCompatibility(client, a)
   );
 
-  const clientDataStr = btoa(
-    unescape(encodeURIComponent(JSON.stringify({ ...client, properties: sorted })))
-  );
-  const brokerDataStr = btoa(unescape(encodeURIComponent(JSON.stringify(broker))));
   const ratingsKey = `ratings_${client.id}`;
 
   const topProp = sorted[0];
@@ -81,9 +77,19 @@ export function generateClientCatalog(client: Client, broker: Broker): void {
     .map((p) => {
       const cp = calculateCompatibility(client, p);
       const fotos = p.fotos || [];
+
+      // fotos com onclick para abrir lightbox
       const fotosH = fotos.length
-        ? `<div class="detail-photos">${fotos.map((f) => `<img src="${f}" alt="" loading="lazy">`).join('')}</div>`
+        ? `<div class="detail-photos">${fotos
+            .map(
+              (f, i) =>
+                `<img src="${f}" alt="Foto ${i + 1}" loading="lazy" onclick="openLightbox('${p.id}',${i})">`
+            )
+            .join('')}</div>`
         : '';
+
+      // array de fotos serializado para uso no lightbox via JS
+      const fotosJson = JSON.stringify(fotos);
 
       const specs: [string, string | number][] = [
         ['Tipo', p.tipoImovel || '-'],
@@ -119,9 +125,11 @@ export function generateClientCatalog(client: Client, broker: Broker): void {
     <h2 class="modal-title">${p.titulo}</h2>
     <div class="modal-price">R$\u00a0${Number(p.preco).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</div>
     ${fotosH}
+    ${fotos.length > 0 ? `<p class="foto-hint">&#x1F50D; Clique em uma foto para ampliar</p>` : ''}
     <div class="dspecs-grid">${specsH}</div>
     ${p.descricao ? `<div class="modal-desc">${p.descricao}</div>` : ''}
     ${p.link ? `<p style="margin:12px 0"><a href="${p.link}" target="_blank" rel="noopener noreferrer" style="color:#e50914">Ver an\u00fancio &#x2197;</a></p>` : ''}
+    <script>window["__fotos_${p.id.replace(/-/g, '_')}"] = ${fotosJson};<\/script>
   </div>
 </div>`;
     })
@@ -247,17 +255,34 @@ ${topImg ? `.hero::before{content:'';position:absolute;inset:0;background:url('$
 .modal-compat{display:inline-block;background:rgba(229,9,20,.15);color:#ff4d57;border:1px solid rgba(229,9,20,.3);border-radius:20px;padding:4px 12px;font-size:12px;font-weight:700;margin-bottom:10px}
 .modal-title{font-size:22px;font-weight:700;color:#fff;margin-bottom:6px}
 .modal-price{font-size:26px;font-weight:700;color:#e50914;margin-bottom:16px}
-.detail-photos{display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:8px;margin-bottom:16px}
-.detail-photos img{width:100%;height:140px;object-fit:cover;border-radius:10px}
+
+/* FOTOS DO MODAL — clicáveis */
+.detail-photos{display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:8px;margin-bottom:8px}
+.detail-photos img{width:100%;height:130px;object-fit:cover;border-radius:10px;cursor:pointer;transition:transform .15s,opacity .15s}
+.detail-photos img:hover{transform:scale(1.04);opacity:.88}
+.foto-hint{font-size:11px;color:#71717a;margin-bottom:14px;display:flex;align-items:center;gap:4px}
+
 .dspecs-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:16px}
 .dspec strong{display:block;font-size:10px;color:#71717a;text-transform:uppercase;margin-bottom:2px}
 .dspec span{font-size:13px;color:#e4e4e7}
 .modal-desc{font-size:13px;color:#a1a1aa;line-height:1.6;border-left:3px solid #e50914;padding-left:12px}
 
+/* LIGHTBOX */
+.lightbox{display:none;position:fixed;inset:0;background:rgba(0,0,0,.96);z-index:1200;align-items:center;justify-content:center}
+.lightbox.open{display:flex}
+.lightbox-img{max-width:92vw;max-height:88vh;object-fit:contain;border-radius:10px;user-select:none}
+.lightbox-close{position:absolute;top:18px;right:22px;color:#fff;font-size:36px;cursor:pointer;background:none;border:none;line-height:1;opacity:.8;transition:opacity .2s}
+.lightbox-close:hover{opacity:1}
+.lightbox-prev,.lightbox-next{position:absolute;top:50%;transform:translateY(-50%);color:#fff;font-size:44px;cursor:pointer;background:none;border:none;padding:0 18px;opacity:.7;transition:opacity .2s;user-select:none}
+.lightbox-prev:hover,.lightbox-next:hover{opacity:1}
+.lightbox-prev{left:0}
+.lightbox-next{right:0}
+.lightbox-counter{position:absolute;bottom:22px;left:50%;transform:translateX(-50%);color:#a1a1aa;font-size:13px;background:rgba(0,0,0,.5);padding:4px 12px;border-radius:20px}
+
 /* PRINT */
 @media print{
   body{background:#fff;color:#111}
-  .hero,.section-title,.hero-actions,.stars-row,.card-actions,.modal-overlay,footer{display:none!important}
+  .hero,.section-title,.hero-actions,.stars-row,.card-actions,.modal-overlay,.lightbox,footer{display:none!important}
   .grid{display:block}
   .card{break-inside:avoid;border:1px solid #ddd;background:#fff;margin-bottom:20px;page-break-inside:avoid}
   .card-img{max-height:220px}
@@ -281,6 +306,7 @@ ${topImg ? `.hero::before{content:'';position:absolute;inset:0;background:url('$
   .hero-right{text-align:left;align-items:flex-start;min-width:unset;max-width:unset}
   .hero-feat-name{max-width:none}
   .dspecs-grid{grid-template-columns:repeat(2,1fr)}
+  .detail-photos{grid-template-columns:repeat(2,1fr)}
 }
 </style>
 </head>
@@ -327,6 +353,15 @@ ${topImg ? `.hero::before{content:'';position:absolute;inset:0;background:url('$
 
 ${detailModals}
 
+<!-- LIGHTBOX GLOBAL -->
+<div class="lightbox" id="lightbox" onclick="if(event.target===this)closeLightbox()">
+  <button class="lightbox-close" onclick="closeLightbox()">&#x2715;</button>
+  <button class="lightbox-prev" onclick="moveLightbox(-1)">&#x2039;</button>
+  <img class="lightbox-img" id="lightbox-img" src="" alt="">
+  <button class="lightbox-next" onclick="moveLightbox(1)">&#x203A;</button>
+  <div class="lightbox-counter" id="lightbox-counter"></div>
+</div>
+
 <footer class="footer">
   <div class="footer-broker">${brokerNome}</div>
   ${brokerTelefone ? `<div class="footer-contact">${brokerTelefone}</div>` : ''}
@@ -343,6 +378,7 @@ const BROKER_TELEFONE = ${JSON.stringify(brokerTelefone)};
 const BROKER_EMAIL = ${JSON.stringify(brokerEmail)};
 const CLIENT_NOME = ${JSON.stringify(client.nome)};
 
+// ── MODAL ──────────────────────────────────────────────────────────────────
 function openDetail(id) {
   document.getElementById('modal-' + id)?.classList.add('open');
   document.body.style.overflow = 'hidden';
@@ -351,15 +387,68 @@ function closeDetail(id) {
   document.getElementById('modal-' + id)?.classList.remove('open');
   document.body.style.overflow = '';
 }
-document.addEventListener('keydown', e => {
+
+// ── LIGHTBOX ───────────────────────────────────────────────────────────────
+var _lbFotos = [];
+var _lbIdx = 0;
+
+function openLightbox(propId, idx) {
+  var key = '__fotos_' + propId.replace(/-/g, '_');
+  var fotos = window[key] || [];
+  if (!fotos.length) return;
+  _lbFotos = fotos;
+  _lbIdx = idx || 0;
+  _renderLightbox();
+  document.getElementById('lightbox').classList.add('open');
+  document.body.style.overflow = 'hidden';
+}
+function closeLightbox() {
+  document.getElementById('lightbox').classList.remove('open');
+  document.body.style.overflow = '';
+}
+function moveLightbox(dir) {
+  _lbIdx = (_lbIdx + dir + _lbFotos.length) % _lbFotos.length;
+  _renderLightbox();
+}
+function _renderLightbox() {
+  document.getElementById('lightbox-img').src = _lbFotos[_lbIdx];
+  document.getElementById('lightbox-counter').textContent =
+    (_lbIdx + 1) + ' / ' + _lbFotos.length;
+  var prev = document.querySelector('.lightbox-prev');
+  var next = document.querySelector('.lightbox-next');
+  if (prev) prev.style.display = _lbFotos.length > 1 ? '' : 'none';
+  if (next) next.style.display = _lbFotos.length > 1 ? '' : 'none';
+}
+
+// ── TECLADO ────────────────────────────────────────────────────────────────
+document.addEventListener('keydown', function(e) {
+  var lb = document.getElementById('lightbox');
+  if (lb && lb.classList.contains('open')) {
+    if (e.key === 'Escape') { closeLightbox(); return; }
+    if (e.key === 'ArrowRight') { moveLightbox(1); return; }
+    if (e.key === 'ArrowLeft') { moveLightbox(-1); return; }
+  }
   if (e.key === 'Escape') {
-    document.querySelectorAll('.modal-overlay.open').forEach(m => {
+    document.querySelectorAll('.modal-overlay.open').forEach(function(m) {
       m.classList.remove('open');
       document.body.style.overflow = '';
     });
   }
 });
 
+// ── TOUCH SWIPE NO LIGHTBOX ────────────────────────────────────────────────
+var _touchStartX = null;
+document.getElementById('lightbox').addEventListener('touchstart', function(e) {
+  _touchStartX = e.touches[0].clientX;
+}, { passive: true });
+document.getElementById('lightbox').addEventListener('touchend', function(e) {
+  if (_touchStartX === null) return;
+  var dx = e.changedTouches[0].clientX - _touchStartX;
+  if (Math.abs(dx) > 40) moveLightbox(dx < 0 ? 1 : -1);
+  _touchStartX = null;
+}, { passive: true });
+
+// ── ESTRELAS ───────────────────────────────────────────────────────────────
 function saveRatings(ratings) {
   try { localStorage.setItem(RATINGS_KEY, JSON.stringify(ratings)); } catch {}
 }
@@ -367,19 +456,19 @@ function loadRatings() {
   try { return JSON.parse(localStorage.getItem(RATINGS_KEY) || '{}'); } catch { return {}; }
 }
 function applyRatings() {
-  const saved = loadRatings();
-  document.querySelectorAll('.star').forEach(s => {
-    const id = s.dataset.id;
-    const val = parseInt(s.dataset.val);
-    const cur = saved[id] || 0;
+  var saved = loadRatings();
+  document.querySelectorAll('.star').forEach(function(s) {
+    var id = s.dataset.id;
+    var val = parseInt(s.dataset.val);
+    var cur = saved[id] || 0;
     s.style.color = cur >= val ? '#facc15' : '#3f3f46';
   });
 }
-document.querySelectorAll('.star').forEach(star => {
+document.querySelectorAll('.star').forEach(function(star) {
   star.addEventListener('click', function() {
-    const id = this.dataset.id;
-    const val = parseInt(this.dataset.val);
-    const ratings = loadRatings();
+    var id = this.dataset.id;
+    var val = parseInt(this.dataset.val);
+    var ratings = loadRatings();
     ratings[id] = val;
     saveRatings(ratings);
     applyRatings();
@@ -387,140 +476,134 @@ document.querySelectorAll('.star').forEach(star => {
 });
 applyRatings();
 
+// ── PDF ────────────────────────────────────────────────────────────────────
 function printCard(id) {
-  const card = PRINT_CARDS.find(c => c.id === id);
+  var card = PRINT_CARDS.find(function(c) { return c.id === id; });
   if (!card) return;
 
-  const specsHtml = card.specs
-    .map(([l, v]) => '<div class="ps"><strong>' + l + '</strong><span>' + v + '</span></div>')
+  var now = new Date().toLocaleDateString('pt-BR');
+
+  var specsHtml = card.specs
+    .map(function(s) {
+      return '<div class="ps"><strong>' + s[0] + '</strong><span>' + s[1] + '</span></div>';
+    })
     .join('');
 
-  const fotosHtml = card.fotos.length > 1
-    ? '<div class="pf">' + card.fotos.map(f => '<img src="' + f + '" alt="" loading="lazy">').join('') + '</div>'
-    : (card.imgSrc ? '<img src="' + card.imgSrc + '" class="pi" alt="">' : '');
-
-  const descHtml = card.descricao
-    ? '<div class="desc">' + card.descricao + '</div>'
+  var fotosPrincipal = card.imgSrc
+    ? '<img src="' + card.imgSrc + '" class="foto-principal" alt="">'
     : '';
 
-  const linkHtml = card.link
-    ? '<p style="margin-top:12px"><a href="' + card.link + '" target="_blank" rel="noopener noreferrer" style="color:#e50914">Ver an\\u00fancio \\u2197</a></p>'
+  var fotosExtras = card.fotos.length > 1
+    ? '<div class="fotos-grid">' + card.fotos.slice(1).map(function(f) {
+        return '<img src="' + f + '" alt="">';
+      }).join('') + '</div>'
     : '';
 
-  const pdfHtml = \`<!DOCTYPE html>
-<html lang="pt-BR">
-<head>
-<meta charset="UTF-8">
-<title>\${card.titulo}</title>
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,600;1,400&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-<style>
-*{box-sizing:border-box;margin:0;padding:0}
-body{font-family:'Inter',sans-serif;padding:36px 40px;color:#111;background:#fff;max-width:820px;margin:auto}
+  var htmlPdf = '<!DOCTYPE html>' +
+    '<html lang="pt-BR"><head>' +
+    '<meta charset="UTF-8">' +
+    '<title>Apresenta\u00e7\u00e3o - ' + card.titulo + '</title>' +
+    '<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">' +
+    '<style>' +
+    '*{box-sizing:border-box;margin:0;padding:0}' +
+    'body{font-family:Inter,sans-serif;background:#fff;color:#111;padding:0}' +
+    '@page{size:A4;margin:0}' +
+    '.pagina{width:210mm;min-height:297mm;padding:12mm 14mm;display:flex;flex-direction:column;page-break-after:always}' +
+    '.pagina:last-child{page-break-after:auto}' +
+    '.cabecalho{background:#e50914;color:#fff;border-radius:12px;padding:18px 22px;display:flex;justify-content:space-between;align-items:center;margin-bottom:16px}' +
+    '.cab-titulo{font-size:11px;font-weight:600;letter-spacing:.12em;text-transform:uppercase;opacity:.85;margin-bottom:4px}' +
+    '.cab-bairro{font-size:26px;font-weight:700;line-height:1.1}' +
+    '.cab-para-label{font-size:10px;opacity:.75;text-align:right;margin-bottom:3px}' +
+    '.cab-para-nome{font-size:16px;font-weight:700;text-align:right}' +
+    '.corretor-box{background:#f8f8f8;border-radius:10px;padding:14px 18px;display:flex;justify-content:space-between;align-items:center;margin-bottom:16px}' +
+    '.corretor-label{font-size:9px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:#888;margin-bottom:6px}' +
+    '.corretor-nome{font-size:18px;font-weight:700;color:#111;margin-bottom:2px}' +
+    '.corretor-empresa{font-size:12px;color:#555;margin-bottom:4px}' +
+    '.corretor-contatos{font-size:12px;color:#333}' +
+    '.compat-box{text-align:center;background:#e50914;color:#fff;border-radius:10px;padding:12px 20px;min-width:110px}' +
+    '.compat-num{font-size:32px;font-weight:700;line-height:1}' +
+    '.compat-label{font-size:9px;font-weight:600;letter-spacing:.1em;text-transform:uppercase;opacity:.85;margin-top:2px}' +
+    '.preco-row{display:flex;justify-content:space-between;align-items:center;margin-bottom:14px}' +
+    '.preco{font-size:28px;font-weight:700;color:#e50914}' +
+    '.titulo-imovel{font-size:14px;font-weight:600;color:#333}' +
+    '.foto-principal{width:100%;max-height:200px;object-fit:cover;border-radius:10px;margin-bottom:14px}' +
+    '.specs-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:14px}' +
+    '.ps{background:#f8f8f8;border-radius:8px;padding:8px 10px}' +
+    '.ps strong{display:block;font-size:8px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:#888;margin-bottom:3px}' +
+    '.ps span{font-size:13px;font-weight:600;color:#111}' +
+    '.fotos-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin-bottom:14px}' +
+    '.fotos-grid img{width:100%;height:90px;object-fit:cover;border-radius:8px}' +
+    '.descricao{font-size:12px;color:#444;line-height:1.6;border-left:3px solid #e50914;padding-left:10px;margin-bottom:14px}' +
+    '.rodape{margin-top:auto;padding-top:12px;border-top:1px solid #eee;display:flex;justify-content:space-between;align-items:center;font-size:10px;color:#888}' +
+    '.rodape-marca{font-size:13px;font-weight:700;color:#e50914}' +
+    '.p2-atendimento{background:#f8f8f8;border-radius:10px;padding:18px 22px;margin-bottom:20px}' +
+    '.p2-at-label{font-size:9px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:#888;margin-bottom:10px}' +
+    '.p2-at-nome{font-size:18px;font-weight:700;color:#111;margin-bottom:4px}' +
+    '.p2-at-contato{font-size:13px;color:#333;margin-bottom:2px}' +
+    '.p2-nota{font-size:11px;color:#888;line-height:1.6;margin-top:20px}' +
+    '@media print{button{display:none!important}}' +
+    '</style></head><body>' +
+    '<div class="pagina">' +
+    '<div class="cabecalho">' +
+    '<div><div class="cab-titulo">Apresenta\u00e7\u00e3o de Im\u00f3vel</div>' +
+    '<div class="cab-bairro">' + (card.bairro || card.titulo) + '</div></div>' +
+    '<div><div class="cab-para-label">Para:</div>' +
+    '<div class="cab-para-nome">' + CLIENT_NOME + '</div></div>' +
+    '</div>' +
+    '<div class="corretor-box">' +
+    '<div><div class="corretor-label">Corretor Respons\u00e1vel</div>' +
+    '<div class="corretor-nome">' + BROKER_NOME + '</div>' +
+    (BROKER_EMPRESA ? '<div class="corretor-empresa">' + BROKER_EMPRESA + '</div>' : '') +
+    '<div class="corretor-contatos">' +
+    (BROKER_EMAIL ? BROKER_EMAIL + '<br>' : '') +
+    (BROKER_TELEFONE ? BROKER_TELEFONE : '') +
+    '</div></div>' +
+    '<div class="compat-box"><div class="compat-num">' + card.cp + '%</div>' +
+    '<div class="compat-label">Compatibilidade</div></div>' +
+    '</div>' +
+    '<div class="preco-row">' +
+    '<div class="preco">R$\u00a0' + card.preco + '</div>' +
+    '<div class="titulo-imovel">' + card.titulo + '</div>' +
+    '</div>' +
+    fotosPrincipal +
+    '<div class="specs-grid">' + specsHtml + '</div>' +
+    (card.descricao ? '<div class="descricao">' + card.descricao + '</div>' : '') +
+    '<div class="rodape">' +
+    '<div><div class="rodape-marca">' + BROKER_NOME + '</div>' +
+    (BROKER_TELEFONE ? '<div>' + BROKER_TELEFONE + '</div>' : '') + '</div>' +
+    '<div>' + now + '</div>' +
+    '</div>' +
+    '</div>' +
+    '<div class="pagina">' +
+    '<div class="cabecalho">' +
+    '<div><div class="cab-titulo">Detalhes do Im\u00f3vel</div>' +
+    '<div class="cab-bairro">' + card.titulo + '</div></div>' +
+    '<div><div class="cab-para-label">Para:</div>' +
+    '<div class="cab-para-nome">' + CLIENT_NOME + '</div></div>' +
+    '</div>' +
+    (card.fotos.length > 1 ? fotosExtras : '') +
+    '<div class="p2-atendimento">' +
+    '<div class="p2-at-label">Atendimento</div>' +
+    '<div class="p2-at-nome">' + BROKER_NOME + '</div>' +
+    (BROKER_TELEFONE ? '<div class="p2-at-contato">Contato: ' + BROKER_TELEFONE + (BROKER_EMPRESA ? '\u00a0\u00a0|\u00a0\u00a0' + BROKER_EMPRESA : '') + '</div>' : '') +
+    '<div class="p2-nota">Documento gerado para apresenta\u00e7\u00e3o do im\u00f3vel ao cliente.</div>' +
+    '</div>' +
+    '<div class="rodape">' +
+    '<div><div class="rodape-marca">' + BROKER_NOME + '</div></div>' +
+    '<div>' + now + '</div>' +
+    '</div>' +
+    '</div>' +
+    '</body></html>';
 
-/* CABEÇALHO SUPERIOR */
-.top-header{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:20px;padding-bottom:16px;border-bottom:3px solid #e50914}
-.top-header-left{}
-.top-label{font-size:11px;color:#888;letter-spacing:.08em;text-transform:uppercase;margin-bottom:4px}
-.top-title{font-size:22px;font-weight:700;color:#111;line-height:1.2}
-.top-para{font-size:13px;color:#555;margin-top:4px}
-.top-header-right{text-align:right;min-width:200px}
-.corretor-label{font-size:10px;color:#888;letter-spacing:.06em;text-transform:uppercase;margin-bottom:4px}
-.corretor-nome{font-family:'Cormorant Garamond',serif;font-size:22px;font-weight:600;color:#e50914;font-style:italic;line-height:1.1}
-.corretor-empresa{font-size:11px;color:#888;margin-top:2px}
-.corretor-email{font-size:11px;color:#888;margin-top:1px}
-.corretor-tel{font-size:13px;font-weight:600;color:#333;margin-top:2px}
-
-/* BLOCO DE COMPATIBILIDADE + PREÇO */
-.compat-price{display:flex;justify-content:space-between;align-items:center;background:#f9fafb;border-radius:10px;padding:14px 18px;margin-bottom:16px;border:1px solid #e5e7eb}
-.compat-box{display:flex;flex-direction:column;align-items:flex-start}
-.compat-pct{font-size:32px;font-weight:700;color:#e50914;line-height:1}
-.compat-lbl{font-size:10px;color:#888;text-transform:uppercase;letter-spacing:.06em;margin-top:2px}
-.price-box{text-align:right}
-.price-val{font-size:28px;font-weight:700;color:#111}
-.price-lbl{font-size:10px;color:#888;text-transform:uppercase;letter-spacing:.06em;margin-top:2px}
-
-/* IMAGEM */
-.pi{width:100%;max-height:300px;object-fit:cover;border-radius:10px;margin-bottom:16px}
-.pf{display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:8px;margin-bottom:16px}
-.pf img{width:100%;height:130px;object-fit:cover;border-radius:8px}
-
-/* SPECS */
-.specs{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:16px;padding:16px;background:#f9fafb;border-radius:10px;border:1px solid #e5e7eb}
-.ps strong{display:block;font-size:9px;color:#888;text-transform:uppercase;letter-spacing:.05em;margin-bottom:3px}
-.ps span{font-size:13px;font-weight:600;color:#111}
-
-/* DESCRIÇÃO */
-.desc{font-size:13px;color:#444;line-height:1.6;margin-top:16px;border-left:3px solid #e50914;padding-left:12px}
-
-/* RODAPÉ */
-.footer{margin-top:28px;padding-top:16px;border-top:1px solid #e5e7eb;display:flex;justify-content:space-between;align-items:center}
-.footer-left{}
-.footer-atendimento{font-size:10px;color:#888;text-transform:uppercase;letter-spacing:.06em;margin-bottom:4px}
-.footer-broker{font-family:'Cormorant Garamond',serif;font-size:22px;font-weight:600;color:#e50914;font-style:italic}
-.footer-contato{font-size:12px;color:#555;margin-top:3px}
-.footer-right{text-align:right;font-size:11px;color:#aaa}
-
-@media print{button,a[href]{display:none}}
-</style>
-</head>
-<body>
-
-<div class="top-header">
-  <div class="top-header-left">
-    <div class="top-label">Apresenta\\u00e7\\u00e3o de Im\\u00f3vel</div>
-    <div class="top-title">\${card.titulo}</div>
-    \${card.bairro ? '<div class="top-para">Para: ' + CLIENT_NOME + '</div>' : '<div class="top-para">Para: ' + CLIENT_NOME + '</div>'}
-  </div>
-  <div class="top-header-right">
-    <div class="corretor-label">Corretor Respons\\u00e1vel</div>
-    <div class="corretor-nome">\${BROKER_NOME}</div>
-    \${BROKER_EMPRESA ? '<div class="corretor-empresa">' + BROKER_EMPRESA + '</div>' : ''}
-    \${BROKER_EMAIL ? '<div class="corretor-email">' + BROKER_EMAIL + '</div>' : ''}
-    \${BROKER_TELEFONE ? '<div class="corretor-tel">' + BROKER_TELEFONE + '</div>' : ''}
-  </div>
-</div>
-
-<div class="compat-price">
-  <div class="compat-box">
-    <div class="compat-pct">\${card.cp}%</div>
-    <div class="compat-lbl">Compatibilidade</div>
-  </div>
-  <div class="price-box">
-    <div class="price-val">R$\\u00a0\${card.preco}</div>
-    <div class="price-lbl">Valor do Im\\u00f3vel</div>
-  </div>
-</div>
-
-\${fotosHtml}
-
-<div class="specs">\${specsHtml}</div>
-
-\${descHtml}
-\${linkHtml}
-
-<div class="footer">
-  <div class="footer-left">
-    <div class="footer-atendimento">Atendimento</div>
-    <div class="footer-broker">\${BROKER_NOME}</div>
-    \${(BROKER_TELEFONE || BROKER_EMPRESA) ? '<div class="footer-contato">Contato: ' + (BROKER_TELEFONE || '') + (BROKER_EMPRESA ? '\\u00a0 | \\u00a0' + BROKER_EMPRESA : '') + '</div>' : ''}
-  </div>
-  <div class="footer-right">Documento gerado para apresenta\\u00e7\\u00e3o do im\\u00f3vel ao cliente.</div>
-</div>
-
-</body>
-</html>\`;
-
-  const blob = new Blob([pdfHtml], { type: 'text/html;charset=utf-8' });
-  const url = URL.createObjectURL(blob);
-  const win = window.open(url, '_blank');
-  if (win) {
-    win.addEventListener('load', () => {
-      setTimeout(() => { win.print(); }, 500);
+  var blob = new Blob([htmlPdf], { type: 'text/html;charset=utf-8' });
+  var url = URL.createObjectURL(blob);
+  var w = window.open(url, '_blank');
+  if (w) {
+    w.addEventListener('load', function() {
+      setTimeout(function() { w.print(); }, 600);
     });
   }
-  setTimeout(() => URL.revokeObjectURL(url), 120000);
+  setTimeout(function() { URL.revokeObjectURL(url); }, 120000);
 }
 <\/script>
 </body>
