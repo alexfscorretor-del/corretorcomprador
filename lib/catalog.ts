@@ -134,14 +134,22 @@ export function generateClientCatalog(client: Client, broker: Broker): void {
     const fotos = p.fotos || [];
 
     const specs: [string, string | number][] = [
-      ['Tipo', p.tipoImovel || '-'],
-      ['Bairro', p.bairro || '-'],
-      ['\u00c1rea', (p.tamanho || '?') + 'm\u00b2'],
-      ['Quartos', p.quartos ?? '-'],
-      ['Su\u00edtes', p.suites ?? '-'],
-      ['Banheiros', p.banheiros ?? '-'],
-      ['Vagas', p.vagas ?? '-'],
-      ['Andar', p.andar ?? '-'],
+      ['TIPO', p.tipoImovel || '-'],
+      ['BAIRRO', p.bairro || '-'],
+      ['\u00c1REA', (p.tamanho || '?') + 'm\u00b2'],
+      ['QUARTOS', p.quartos ?? '-'],
+      ['SU\u00cdTES', p.suites ?? '-'],
+      ['BANHEIROS', p.banheiros ?? '-'],
+      ['VAGAS', p.vagas ?? '-'],
+      ['ANDAR', p.andar ?? '-'],
+      ['CONDOM\u00cdNIO', p.condominio ? 'R$ ' + Number(p.condominio).toLocaleString('pt-BR', { minimumFractionDigits: 2 }) : '-'],
+      ['PR\u00c9DIO NOVO', p.predioNovo || '-'],
+      ['REFORMADO', p.reformado || '-'],
+      ['MOBILIADO', p.mobiliado ? 'Sim' : 'N\u00e3o'],
+      ['VARANDA', p.varanda ? 'Sim' : 'N\u00e3o'],
+      ['\u00c1REA LAZER', p.areaLazer ? 'Sim' : 'N\u00e3o'],
+      ['PET', p.aceitaPet ? 'Sim' : 'N\u00e3o'],
+      ['FINANCIAMENTO', p.aceitaFinanciamento || '-'],
     ];
 
     return {
@@ -330,7 +338,10 @@ ${detailModals}
 const RATINGS_KEY = '${ratingsKey}';
 const PRINT_CARDS = ${JSON.stringify(printCardsData)};
 const BROKER_NOME = ${JSON.stringify(brokerNome)};
+const BROKER_EMPRESA = ${JSON.stringify(brokerEmpresa)};
 const BROKER_TELEFONE = ${JSON.stringify(brokerTelefone)};
+const BROKER_EMAIL = ${JSON.stringify(brokerEmail)};
+const CLIENT_NOME = ${JSON.stringify(client.nome)};
 
 function openDetail(id) {
   document.getElementById('modal-' + id)?.classList.add('open');
@@ -384,7 +395,7 @@ function printCard(id) {
     .map(([l, v]) => '<div class="ps"><strong>' + l + '</strong><span>' + v + '</span></div>')
     .join('');
 
-  const fotosHtml = card.fotos.length
+  const fotosHtml = card.fotos.length > 1
     ? '<div class="pf">' + card.fotos.map(f => '<img src="' + f + '" alt="" loading="lazy">').join('') + '</div>'
     : (card.imgSrc ? '<img src="' + card.imgSrc + '" class="pi" alt="">' : '');
 
@@ -403,45 +414,101 @@ function printCard(id) {
 <title>\${card.titulo}</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,600;1,400&family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,600;1,400&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
 body{font-family:'Inter',sans-serif;padding:36px 40px;color:#111;background:#fff;max-width:820px;margin:auto}
-.header{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:24px;padding-bottom:18px;border-bottom:3px solid #e50914}
-.hname{font-size:24px;font-weight:700;line-height:1.2;color:#111}
-.hbairro{font-size:13px;color:#666;margin-top:4px}
-.compat{display:inline-block;background:#fef2f2;color:#b91c1c;border:1px solid #fca5a5;border-radius:20px;padding:3px 10px;font-size:11px;font-weight:700;margin-top:6px}
-.hprice{font-size:28px;font-weight:700;color:#e50914;white-space:nowrap;text-align:right}
-.pi{width:100%;max-height:300px;object-fit:cover;border-radius:10px;margin:16px 0}
-.pf{display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:8px;margin:16px 0}
+
+/* CABEÇALHO SUPERIOR */
+.top-header{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:20px;padding-bottom:16px;border-bottom:3px solid #e50914}
+.top-header-left{}
+.top-label{font-size:11px;color:#888;letter-spacing:.08em;text-transform:uppercase;margin-bottom:4px}
+.top-title{font-size:22px;font-weight:700;color:#111;line-height:1.2}
+.top-para{font-size:13px;color:#555;margin-top:4px}
+.top-header-right{text-align:right;min-width:200px}
+.corretor-label{font-size:10px;color:#888;letter-spacing:.06em;text-transform:uppercase;margin-bottom:4px}
+.corretor-nome{font-family:'Cormorant Garamond',serif;font-size:22px;font-weight:600;color:#e50914;font-style:italic;line-height:1.1}
+.corretor-empresa{font-size:11px;color:#888;margin-top:2px}
+.corretor-email{font-size:11px;color:#888;margin-top:1px}
+.corretor-tel{font-size:13px;font-weight:600;color:#333;margin-top:2px}
+
+/* BLOCO DE COMPATIBILIDADE + PREÇO */
+.compat-price{display:flex;justify-content:space-between;align-items:center;background:#f9fafb;border-radius:10px;padding:14px 18px;margin-bottom:16px;border:1px solid #e5e7eb}
+.compat-box{display:flex;flex-direction:column;align-items:flex-start}
+.compat-pct{font-size:32px;font-weight:700;color:#e50914;line-height:1}
+.compat-lbl{font-size:10px;color:#888;text-transform:uppercase;letter-spacing:.06em;margin-top:2px}
+.price-box{text-align:right}
+.price-val{font-size:28px;font-weight:700;color:#111}
+.price-lbl{font-size:10px;color:#888;text-transform:uppercase;letter-spacing:.06em;margin-top:2px}
+
+/* IMAGEM */
+.pi{width:100%;max-height:300px;object-fit:cover;border-radius:10px;margin-bottom:16px}
+.pf{display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:8px;margin-bottom:16px}
 .pf img{width:100%;height:130px;object-fit:cover;border-radius:8px}
-.specs{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin:16px 0;padding:16px;background:#f9fafb;border-radius:10px}
-.ps strong{display:block;font-size:10px;color:#888;text-transform:uppercase;letter-spacing:.05em;margin-bottom:3px}
+
+/* SPECS */
+.specs{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:16px;padding:16px;background:#f9fafb;border-radius:10px;border:1px solid #e5e7eb}
+.ps strong{display:block;font-size:9px;color:#888;text-transform:uppercase;letter-spacing:.05em;margin-bottom:3px}
 .ps span{font-size:13px;font-weight:600;color:#111}
+
+/* DESCRIÇÃO */
 .desc{font-size:13px;color:#444;line-height:1.6;margin-top:16px;border-left:3px solid #e50914;padding-left:12px}
+
+/* RODAPÉ */
 .footer{margin-top:28px;padding-top:16px;border-top:1px solid #e5e7eb;display:flex;justify-content:space-between;align-items:center}
+.footer-left{}
+.footer-atendimento{font-size:10px;color:#888;text-transform:uppercase;letter-spacing:.06em;margin-bottom:4px}
 .footer-broker{font-family:'Cormorant Garamond',serif;font-size:22px;font-weight:600;color:#e50914;font-style:italic}
-.footer-phone{font-size:13px;color:#555;font-weight:600}
+.footer-contato{font-size:12px;color:#555;margin-top:3px}
+.footer-right{text-align:right;font-size:11px;color:#aaa}
+
 @media print{button,a[href]{display:none}}
 </style>
 </head>
 <body>
-<div class="header">
-  <div>
-    <div class="hname">\${card.titulo}</div>
-    <div class="hbairro">\${card.bairro}</div>
-    <div class="compat">\${card.cp}% Compat\\u00edvel</div>
+
+<div class="top-header">
+  <div class="top-header-left">
+    <div class="top-label">Apresenta\\u00e7\\u00e3o de Im\\u00f3vel</div>
+    <div class="top-title">\${card.titulo}</div>
+    \${card.bairro ? '<div class="top-para">Para: ' + CLIENT_NOME + '</div>' : '<div class="top-para">Para: ' + CLIENT_NOME + '</div>'}
   </div>
-  <div class="hprice">R$\\u00a0\${card.preco}</div>
+  <div class="top-header-right">
+    <div class="corretor-label">Corretor Respons\\u00e1vel</div>
+    <div class="corretor-nome">\${BROKER_NOME}</div>
+    \${BROKER_EMPRESA ? '<div class="corretor-empresa">' + BROKER_EMPRESA + '</div>' : ''}
+    \${BROKER_EMAIL ? '<div class="corretor-email">' + BROKER_EMAIL + '</div>' : ''}
+    \${BROKER_TELEFONE ? '<div class="corretor-tel">' + BROKER_TELEFONE + '</div>' : ''}
+  </div>
 </div>
+
+<div class="compat-price">
+  <div class="compat-box">
+    <div class="compat-pct">\${card.cp}%</div>
+    <div class="compat-lbl">Compatibilidade</div>
+  </div>
+  <div class="price-box">
+    <div class="price-val">R$\\u00a0\${card.preco}</div>
+    <div class="price-lbl">Valor do Im\\u00f3vel</div>
+  </div>
+</div>
+
 \${fotosHtml}
+
 <div class="specs">\${specsHtml}</div>
+
 \${descHtml}
 \${linkHtml}
+
 <div class="footer">
-  <div class="footer-broker">\${BROKER_NOME}</div>
-  \${BROKER_TELEFONE ? '<div class="footer-phone">' + BROKER_TELEFONE + '</div>' : ''}
+  <div class="footer-left">
+    <div class="footer-atendimento">Atendimento</div>
+    <div class="footer-broker">\${BROKER_NOME}</div>
+    \${(BROKER_TELEFONE || BROKER_EMPRESA) ? '<div class="footer-contato">Contato: ' + (BROKER_TELEFONE || '') + (BROKER_EMPRESA ? '\\u00a0 | \\u00a0' + BROKER_EMPRESA : '') + '</div>' : ''}
+  </div>
+  <div class="footer-right">Documento gerado para apresenta\\u00e7\\u00e3o do im\\u00f3vel ao cliente.</div>
 </div>
+
 </body>
 </html>\`;
 
