@@ -39,7 +39,7 @@ export default function PropertyForm({ clientId, initial, onSave, onCancel }: Pr
   );
   // Normaliza 'paralela' legado para 'gaveta'
   const [tipoVagaModelo, setTipoVagaModelo] = useState(() => {
-    const v = initial?.tipoVagaModelo || '';
+    const v = (initial?.tipoVagaModelo as string) || '';
     return v === 'paralela' ? 'gaveta' : v;
   });
   const [andar, setAndar] = useState(initial?.andar?.toString() || '');
