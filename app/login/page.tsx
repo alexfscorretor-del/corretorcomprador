@@ -73,27 +73,8 @@ export default function LoginPage() {
       return;
     }
 
-    const userId = data.user?.id;
-
-    if (userId) {
-      const { error: brokerError } = await supabase.from('brokers').upsert(
-        {
-          user_id: userId,
-          email: normalizedEmail,
-          nome: normalizedEmail,
-          telefone: 'Não informado',
-          ativo: true,
-          plano: 'free',
-        },
-        { onConflict: 'user_id' }
-      );
-
-      if (brokerError) {
-        setLoading(false);
-        setMessage(`Usuário criado, mas houve erro ao criar perfil: ${brokerError.message}`);
-        return;
-      }
-
+    // O registro em brokers é criado automaticamente via trigger no banco
+    if (data.user?.id) {
       await supabase.rpc('consume_broker_invite', { p_email: normalizedEmail });
     }
 
