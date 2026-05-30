@@ -77,19 +77,10 @@ export function generateClientCatalog(client: Client, broker: Broker): void {
     .map((p) => {
       const cp = calculateCompatibility(client, p);
       const fotos = p.fotos || [];
-
-      // fotos com onclick para abrir lightbox
       const fotosH = fotos.length
-        ? `<div class="detail-photos">${fotos
-            .map(
-              (f, i) =>
-                `<img src="${f}" alt="Foto ${i + 1}" loading="lazy" onclick="openLightbox('${p.id}',${i})">`
-            )
-            .join('')}</div>`
+        ? `<div class="detail-photos">${fotos.map((f, i) => `<img src="${f}" alt="" loading="lazy" class="detail-photo-thumb" onclick="openLightbox('${p.id}',${i})">`).join('')}</div>
+           <p class="foto-dica">&#x1F50D; Clique em uma foto para ampliar</p>`
         : '';
-
-      // array de fotos serializado para uso no lightbox via JS
-      const fotosJson = JSON.stringify(fotos);
 
       const specs: [string, string | number][] = [
         ['Tipo', p.tipoImovel || '-'],
@@ -114,6 +105,8 @@ export function generateClientCatalog(client: Client, broker: Broker): void {
         .map(([l, v]) => `<div class="dspec"><strong>${l}</strong><span>${v}</span></div>`)
         .join('');
 
+      const fotosJson = JSON.stringify(fotos);
+
       return `
 <div class="modal-overlay" id="modal-${p.id}" onclick="if(event.target===this)closeDetail('${p.id}')">
   <div class="modal-box">
@@ -125,13 +118,12 @@ export function generateClientCatalog(client: Client, broker: Broker): void {
     <h2 class="modal-title">${p.titulo}</h2>
     <div class="modal-price">R$\u00a0${Number(p.preco).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</div>
     ${fotosH}
-    ${fotos.length > 0 ? `<p class="foto-hint">&#x1F50D; Clique em uma foto para ampliar</p>` : ''}
     <div class="dspecs-grid">${specsH}</div>
     ${p.descricao ? `<div class="modal-desc">${p.descricao}</div>` : ''}
     ${p.link ? `<p style="margin:12px 0"><a href="${p.link}" target="_blank" rel="noopener noreferrer" style="color:#e50914">Ver an\u00fancio &#x2197;</a></p>` : ''}
-    <script>window["__fotos_${p.id.replace(/-/g, '_')}"] = ${fotosJson};<\/script>
   </div>
-</div>`;
+</div>
+<script>window.__fotos_${p.id} = ${fotosJson};<\/script>`;
     })
     .join('');
 
@@ -257,10 +249,10 @@ ${topImg ? `.hero::before{content:'';position:absolute;inset:0;background:url('$
 .modal-price{font-size:26px;font-weight:700;color:#e50914;margin-bottom:16px}
 
 /* FOTOS DO MODAL — clicáveis */
-.detail-photos{display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:8px;margin-bottom:8px}
-.detail-photos img{width:100%;height:130px;object-fit:cover;border-radius:10px;cursor:pointer;transition:transform .15s,opacity .15s}
-.detail-photos img:hover{transform:scale(1.04);opacity:.88}
-.foto-hint{font-size:11px;color:#71717a;margin-bottom:14px;display:flex;align-items:center;gap:4px}
+.detail-photos{display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:8px;margin-bottom:6px}
+.detail-photo-thumb{width:100%;height:140px;object-fit:cover;border-radius:10px;cursor:pointer;transition:transform .2s,opacity .2s}
+.detail-photo-thumb:hover{transform:scale(1.03);opacity:.88}
+.foto-dica{font-size:11px;color:#71717a;margin-bottom:14px;text-align:center}
 
 .dspecs-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:16px}
 .dspec strong{display:block;font-size:10px;color:#71717a;text-transform:uppercase;margin-bottom:2px}
@@ -268,21 +260,25 @@ ${topImg ? `.hero::before{content:'';position:absolute;inset:0;background:url('$
 .modal-desc{font-size:13px;color:#a1a1aa;line-height:1.6;border-left:3px solid #e50914;padding-left:12px}
 
 /* LIGHTBOX */
-.lightbox{display:none;position:fixed;inset:0;background:rgba(0,0,0,.96);z-index:1200;align-items:center;justify-content:center}
-.lightbox.open{display:flex}
-.lightbox-img{max-width:92vw;max-height:88vh;object-fit:contain;border-radius:10px;user-select:none}
-.lightbox-close{position:absolute;top:18px;right:22px;color:#fff;font-size:36px;cursor:pointer;background:none;border:none;line-height:1;opacity:.8;transition:opacity .2s}
-.lightbox-close:hover{opacity:1}
-.lightbox-prev,.lightbox-next{position:absolute;top:50%;transform:translateY(-50%);color:#fff;font-size:44px;cursor:pointer;background:none;border:none;padding:0 18px;opacity:.7;transition:opacity .2s;user-select:none}
-.lightbox-prev:hover,.lightbox-next:hover{opacity:1}
-.lightbox-prev{left:0}
-.lightbox-next{right:0}
-.lightbox-counter{position:absolute;bottom:22px;left:50%;transform:translateX(-50%);color:#a1a1aa;font-size:13px;background:rgba(0,0,0,.5);padding:4px 12px;border-radius:20px}
+.lb-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.96);z-index:9999;align-items:center;justify-content:center;flex-direction:column}
+.lb-overlay.lb-open{display:flex}
+.lb-img{max-width:92vw;max-height:82vh;object-fit:contain;border-radius:8px;user-select:none}
+.lb-close{position:fixed;top:18px;right:22px;background:rgba(255,255,255,.12);border:none;color:#fff;font-size:24px;cursor:pointer;border-radius:50%;width:44px;height:44px;display:flex;align-items:center;justify-content:center;transition:background .2s;z-index:10000}
+.lb-close:hover{background:rgba(255,255,255,.25)}
+.lb-prev,.lb-next{position:fixed;top:50%;transform:translateY(-50%);background:rgba(255,255,255,.12);border:none;color:#fff;font-size:28px;cursor:pointer;border-radius:50%;width:52px;height:52px;display:flex;align-items:center;justify-content:center;transition:background .2s;z-index:10000;user-select:none}
+.lb-prev{left:16px}
+.lb-next{right:16px}
+.lb-prev:hover,.lb-next:hover{background:rgba(255,255,255,.25)}
+.lb-counter{position:fixed;bottom:20px;left:50%;transform:translateX(-50%);color:#a1a1aa;font-size:13px;font-family:'Inter',sans-serif}
+@media(max-width:600px){
+  .lb-prev{left:6px;width:42px;height:42px;font-size:22px}
+  .lb-next{right:6px;width:42px;height:42px;font-size:22px}
+}
 
 /* PRINT */
 @media print{
   body{background:#fff;color:#111}
-  .hero,.section-title,.hero-actions,.stars-row,.card-actions,.modal-overlay,.lightbox,footer{display:none!important}
+  .hero,.section-title,.hero-actions,.stars-row,.card-actions,.modal-overlay,footer,.lb-overlay{display:none!important}
   .grid{display:block}
   .card{break-inside:avoid;border:1px solid #ddd;background:#fff;margin-bottom:20px;page-break-inside:avoid}
   .card-img{max-height:220px}
@@ -306,11 +302,19 @@ ${topImg ? `.hero::before{content:'';position:absolute;inset:0;background:url('$
   .hero-right{text-align:left;align-items:flex-start;min-width:unset;max-width:unset}
   .hero-feat-name{max-width:none}
   .dspecs-grid{grid-template-columns:repeat(2,1fr)}
-  .detail-photos{grid-template-columns:repeat(2,1fr)}
 }
 </style>
 </head>
 <body>
+
+<!-- LIGHTBOX GLOBAL -->
+<div class="lb-overlay" id="lb-overlay" onclick="if(event.target===this)closeLightbox()">
+  <button class="lb-close" onclick="closeLightbox()">&#x2715;</button>
+  <button class="lb-prev" id="lb-prev" onclick="lbNav(-1)">&#x2039;</button>
+  <img class="lb-img" id="lb-img" src="" alt="">
+  <button class="lb-next" id="lb-next" onclick="lbNav(1)">&#x203A;</button>
+  <div class="lb-counter" id="lb-counter"></div>
+</div>
 
 <div class="hero">
   <div class="hero-inner">
@@ -353,15 +357,6 @@ ${topImg ? `.hero::before{content:'';position:absolute;inset:0;background:url('$
 
 ${detailModals}
 
-<!-- LIGHTBOX GLOBAL -->
-<div class="lightbox" id="lightbox" onclick="if(event.target===this)closeLightbox()">
-  <button class="lightbox-close" onclick="closeLightbox()">&#x2715;</button>
-  <button class="lightbox-prev" onclick="moveLightbox(-1)">&#x2039;</button>
-  <img class="lightbox-img" id="lightbox-img" src="" alt="">
-  <button class="lightbox-next" onclick="moveLightbox(1)">&#x203A;</button>
-  <div class="lightbox-counter" id="lightbox-counter"></div>
-</div>
-
 <footer class="footer">
   <div class="footer-broker">${brokerNome}</div>
   ${brokerTelefone ? `<div class="footer-contact">${brokerTelefone}</div>` : ''}
@@ -378,7 +373,7 @@ const BROKER_TELEFONE = ${JSON.stringify(brokerTelefone)};
 const BROKER_EMAIL = ${JSON.stringify(brokerEmail)};
 const CLIENT_NOME = ${JSON.stringify(client.nome)};
 
-// ── MODAL ──────────────────────────────────────────────────────────────────
+/* ── MODAL DE DETALHE ── */
 function openDetail(id) {
   document.getElementById('modal-' + id)?.classList.add('open');
   document.body.style.overflow = 'hidden';
@@ -388,45 +383,50 @@ function closeDetail(id) {
   document.body.style.overflow = '';
 }
 
-// ── LIGHTBOX ───────────────────────────────────────────────────────────────
+/* ── LIGHTBOX ── */
 var _lbFotos = [];
 var _lbIdx = 0;
 
 function openLightbox(propId, idx) {
-  var key = '__fotos_' + propId.replace(/-/g, '_');
-  var fotos = window[key] || [];
+  var fotos = window['__fotos_' + propId] || [];
   if (!fotos.length) return;
   _lbFotos = fotos;
-  _lbIdx = idx || 0;
-  _renderLightbox();
-  document.getElementById('lightbox').classList.add('open');
+  _lbIdx = idx;
+  _lbRender();
+  document.getElementById('lb-overlay').classList.add('lb-open');
   document.body.style.overflow = 'hidden';
 }
 function closeLightbox() {
-  document.getElementById('lightbox').classList.remove('open');
+  document.getElementById('lb-overlay').classList.remove('lb-open');
   document.body.style.overflow = '';
 }
-function moveLightbox(dir) {
+function lbNav(dir) {
   _lbIdx = (_lbIdx + dir + _lbFotos.length) % _lbFotos.length;
-  _renderLightbox();
+  _lbRender();
 }
-function _renderLightbox() {
-  document.getElementById('lightbox-img').src = _lbFotos[_lbIdx];
-  document.getElementById('lightbox-counter').textContent =
-    (_lbIdx + 1) + ' / ' + _lbFotos.length;
-  var prev = document.querySelector('.lightbox-prev');
-  var next = document.querySelector('.lightbox-next');
-  if (prev) prev.style.display = _lbFotos.length > 1 ? '' : 'none';
-  if (next) next.style.display = _lbFotos.length > 1 ? '' : 'none';
+function _lbRender() {
+  document.getElementById('lb-img').src = _lbFotos[_lbIdx];
+  document.getElementById('lb-counter').textContent = (_lbIdx + 1) + ' / ' + _lbFotos.length;
+  document.getElementById('lb-prev').style.display = _lbFotos.length > 1 ? 'flex' : 'none';
+  document.getElementById('lb-next').style.display = _lbFotos.length > 1 ? 'flex' : 'none';
 }
 
-// ── TECLADO ────────────────────────────────────────────────────────────────
+/* Swipe no celular */
+var _lbTouchX = null;
+document.getElementById('lb-overlay').addEventListener('touchstart', function(e){ _lbTouchX = e.touches[0].clientX; }, {passive:true});
+document.getElementById('lb-overlay').addEventListener('touchend', function(e){
+  if (_lbTouchX === null) return;
+  var dx = e.changedTouches[0].clientX - _lbTouchX;
+  if (Math.abs(dx) > 40) lbNav(dx < 0 ? 1 : -1);
+  _lbTouchX = null;
+}, {passive:true});
+
 document.addEventListener('keydown', function(e) {
-  var lb = document.getElementById('lightbox');
-  if (lb && lb.classList.contains('open')) {
-    if (e.key === 'Escape') { closeLightbox(); return; }
-    if (e.key === 'ArrowRight') { moveLightbox(1); return; }
-    if (e.key === 'ArrowLeft') { moveLightbox(-1); return; }
+  if (document.getElementById('lb-overlay').classList.contains('lb-open')) {
+    if (e.key === 'ArrowRight') lbNav(1);
+    else if (e.key === 'ArrowLeft') lbNav(-1);
+    else if (e.key === 'Escape') closeLightbox();
+    return;
   }
   if (e.key === 'Escape') {
     document.querySelectorAll('.modal-overlay.open').forEach(function(m) {
@@ -436,19 +436,7 @@ document.addEventListener('keydown', function(e) {
   }
 });
 
-// ── TOUCH SWIPE NO LIGHTBOX ────────────────────────────────────────────────
-var _touchStartX = null;
-document.getElementById('lightbox').addEventListener('touchstart', function(e) {
-  _touchStartX = e.touches[0].clientX;
-}, { passive: true });
-document.getElementById('lightbox').addEventListener('touchend', function(e) {
-  if (_touchStartX === null) return;
-  var dx = e.changedTouches[0].clientX - _touchStartX;
-  if (Math.abs(dx) > 40) moveLightbox(dx < 0 ? 1 : -1);
-  _touchStartX = null;
-}, { passive: true });
-
-// ── ESTRELAS ───────────────────────────────────────────────────────────────
+/* ── AVALIAÇÕES (ESTRELAS) ── */
 function saveRatings(ratings) {
   try { localStorage.setItem(RATINGS_KEY, JSON.stringify(ratings)); } catch {}
 }
@@ -476,9 +464,9 @@ document.querySelectorAll('.star').forEach(function(star) {
 });
 applyRatings();
 
-// ── PDF ────────────────────────────────────────────────────────────────────
+/* ── PDF ── */
 function printCard(id) {
-  var card = PRINT_CARDS.find(function(c) { return c.id === id; });
+  var card = PRINT_CARDS.find(function(c){ return c.id === id; });
   if (!card) return;
 
   var now = new Date().toLocaleDateString('pt-BR');
