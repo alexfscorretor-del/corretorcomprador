@@ -37,9 +37,11 @@ export default function PropertyForm({ clientId, initial, onSave, onCancel }: Pr
   const [tipoVagaCobertura, setTipoVagaCobertura] = useState(
     initial?.tipoVagaCobertura || ''
   );
-  const [tipoVagaModelo, setTipoVagaModelo] = useState(
-    initial?.tipoVagaModelo === 'gaveta' ? 'paralela' : initial?.tipoVagaModelo || ''
-  );
+  // Normaliza 'paralela' legado para 'gaveta'
+  const [tipoVagaModelo, setTipoVagaModelo] = useState(() => {
+    const v = initial?.tipoVagaModelo || '';
+    return v === 'paralela' ? 'gaveta' : v;
+  });
   const [andar, setAndar] = useState(initial?.andar?.toString() || '');
   const [condominioStr, setCondominioStr] = useState(formatMoeda(initial?.condominio));
   const [predioNovo, setPredioNovo] = useState(initial?.predioNovo || '');
@@ -66,45 +68,26 @@ export default function PropertyForm({ clientId, initial, onSave, onCancel }: Pr
   const processFile = (file: File): Promise<string> => {
     return new Promise((resolve, reject) => {
       const reader = new FileReader();
-
       reader.onerror = () => reject(new Error('Falha ao ler arquivo'));
-
       reader.onload = (ev) => {
         const img = new Image();
-
         img.onerror = () => reject(new Error('Falha ao processar imagem'));
-
         img.onload = () => {
           const canvas = document.createElement('canvas');
           const MAX = 800;
           let w = img.width;
           let h = img.height;
-
-          if (w > h && w > MAX) {
-            h = (h * MAX) / w;
-            w = MAX;
-          } else if (h > MAX) {
-            w = (w * MAX) / h;
-            h = MAX;
-          }
-
+          if (w > h && w > MAX) { h = (h * MAX) / w; w = MAX; }
+          else if (h > MAX) { w = (w * MAX) / h; h = MAX; }
           canvas.width = w;
           canvas.height = h;
-
           const ctx = canvas.getContext('2d');
-
-          if (!ctx) {
-            reject(new Error('Canvas indisponível'));
-            return;
-          }
-
+          if (!ctx) { reject(new Error('Canvas indisponível')); return; }
           ctx.drawImage(img, 0, 0, w, h);
           resolve(canvas.toDataURL('image/jpeg', 0.7));
         };
-
         img.src = ev.target?.result as string;
       };
-
       reader.readAsDataURL(file);
     });
   };
@@ -112,10 +95,8 @@ export default function PropertyForm({ clientId, initial, onSave, onCancel }: Pr
   const handleFileUpload = async (e: ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(e.target.files || []);
     if (!files.length) return;
-
     setProcessingImages(true);
     setProcessingCount(files.length);
-
     try {
       const processed = await Promise.all(files.map(processFile));
       setFotosBase64((prev) => [...prev, ...processed]);
@@ -131,26 +112,14 @@ export default function PropertyForm({ clientId, initial, onSave, onCancel }: Pr
 
   const handlePrecoInput = (e: ChangeEvent<HTMLInputElement>) => {
     const raw = e.target.value.replace(/\D/g, '');
-    if (!raw) {
-      setPrecoStr('');
-      return;
-    }
-
-    setPrecoStr(
-      (parseInt(raw) / 100).toLocaleString('pt-BR', { minimumFractionDigits: 2 })
-    );
+    if (!raw) { setPrecoStr(''); return; }
+    setPrecoStr((parseInt(raw) / 100).toLocaleString('pt-BR', { minimumFractionDigits: 2 }));
   };
 
   const handleCondInput = (e: ChangeEvent<HTMLInputElement>) => {
     const raw = e.target.value.replace(/\D/g, '');
-    if (!raw) {
-      setCondominioStr('');
-      return;
-    }
-
-    setCondominioStr(
-      (parseInt(raw) / 100).toLocaleString('pt-BR', { minimumFractionDigits: 2 })
-    );
+    if (!raw) { setCondominioStr(''); return; }
+    setCondominioStr((parseInt(raw) / 100).toLocaleString('pt-BR', { minimumFractionDigits: 2 }));
   };
 
   const handleSubmit = () => {
@@ -158,12 +127,7 @@ export default function PropertyForm({ clientId, initial, onSave, onCancel }: Pr
       alert('Aguarde o processamento das fotos terminar antes de salvar.');
       return;
     }
-
-    const urlArr = fotosUrls
-      .split(',')
-      .map((u) => u.trim())
-      .filter(Boolean);
-
+    const urlArr = fotosUrls.split(',').map((u) => u.trim()).filter(Boolean);
     const fotos = [...fotosBase64, ...urlArr];
 
     const prop: Property = {
@@ -210,11 +174,7 @@ export default function PropertyForm({ clientId, initial, onSave, onCancel }: Pr
         <h2 className="text-xl font-bold text-white">
           {initial ? 'Editar Imóvel' : 'Cadastrar Imóvel'}
         </h2>
-        <button
-          type="button"
-          onClick={onCancel}
-          className="text-zinc-400 hover:text-white transition-colors"
-        >
+        <button type="button" onClick={onCancel} className="text-zinc-400 hover:text-white transition-colors">
           <X size={20} />
         </button>
       </div>
@@ -222,109 +182,57 @@ export default function PropertyForm({ clientId, initial, onSave, onCancel }: Pr
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <div>
           <label className={fl}>Título</label>
-          <input
-            value={titulo}
-            onChange={(e) => setTitulo(e.target.value)}
-            className={fi}
-            placeholder="Ex: Apto 3Q Setor Bueno"
-          />
+          <input value={titulo} onChange={(e) => setTitulo(e.target.value)} className={fi} placeholder="Ex: Apto 3Q Setor Bueno" />
         </div>
 
         <div>
           <label className={fl}>Tipo de imóvel</label>
-          <select
-            value={tipoImovel}
-            onChange={(e) => setTipoImovel(e.target.value)}
-            className={fi}
-          >
+          <select value={tipoImovel} onChange={(e) => setTipoImovel(e.target.value)} className={fi}>
             <option value="">Selecione</option>
-            {['Apartamento', 'Casa', 'Cobertura', 'Studio', 'Terreno', 'Comercial'].map(
-              (t) => (
-                <option key={t} value={t}>
-                  {t}
-                </option>
-              )
-            )}
+            {['Apartamento', 'Casa', 'Cobertura', 'Studio', 'Terreno', 'Comercial'].map((t) => (
+              <option key={t} value={t}>{t}</option>
+            ))}
           </select>
         </div>
 
         <div>
           <label className={fl}>Preço (R$)</label>
-          <input
-            value={precoStr}
-            onChange={handlePrecoInput}
-            className={fi}
-            inputMode="numeric"
-            placeholder="0,00"
-          />
+          <input value={precoStr} onChange={handlePrecoInput} className={fi} inputMode="numeric" placeholder="0,00" />
         </div>
 
         <div>
           <label className={fl}>Bairro</label>
-          <input
-            value={bairro}
-            onChange={(e) => setBairro(e.target.value)}
-            className={fi}
-          />
+          <input value={bairro} onChange={(e) => setBairro(e.target.value)} className={fi} />
         </div>
 
         <div>
           <label className={fl}>Área (m²)</label>
-          <input
-            value={tamanho}
-            onChange={(e) => setTamanho(e.target.value.replace(/\D/g, ''))}
-            className={fi}
-            inputMode="numeric"
-          />
+          <input value={tamanho} onChange={(e) => setTamanho(e.target.value.replace(/\D/g, ''))} className={fi} inputMode="numeric" />
         </div>
 
         <div>
           <label className={fl}>Quartos</label>
-          <input
-            value={quartos}
-            onChange={(e) => setQuartos(e.target.value.replace(/\D/g, ''))}
-            className={fi}
-            inputMode="numeric"
-          />
+          <input value={quartos} onChange={(e) => setQuartos(e.target.value.replace(/\D/g, ''))} className={fi} inputMode="numeric" />
         </div>
 
         <div>
           <label className={fl}>Suítes</label>
-          <input
-            value={suites}
-            onChange={(e) => setSuites(e.target.value.replace(/\D/g, ''))}
-            className={fi}
-            inputMode="numeric"
-          />
+          <input value={suites} onChange={(e) => setSuites(e.target.value.replace(/\D/g, ''))} className={fi} inputMode="numeric" />
         </div>
 
         <div>
           <label className={fl}>Banheiros</label>
-          <input
-            value={banheiros}
-            onChange={(e) => setBanheiros(e.target.value.replace(/\D/g, ''))}
-            className={fi}
-            inputMode="numeric"
-          />
+          <input value={banheiros} onChange={(e) => setBanheiros(e.target.value.replace(/\D/g, ''))} className={fi} inputMode="numeric" />
         </div>
 
         <div>
           <label className={fl}>Vagas</label>
-          <input
-            value={vagas}
-            onChange={(e) => setVagas(e.target.value.replace(/\D/g, ''))}
-            className={fi}
-            inputMode="numeric"
-          />
+          <input value={vagas} onChange={(e) => setVagas(e.target.value.replace(/\D/g, ''))} className={fi} inputMode="numeric" />
         </div>
 
         <div>
           <label className={fl}>Tipo de Vaga — Cobertura</label>
-          <select
-            value={tipoVagaCobertura}
-            onChange={(e) => setTipoVagaCobertura(e.target.value)}
-            className={fi}
-          >
+          <select value={tipoVagaCobertura} onChange={(e) => setTipoVagaCobertura(e.target.value)} className={fi}>
             <option value="">Indiferente</option>
             <option value="coberta">Coberta</option>
             <option value="descoberta">Descoberta</option>
@@ -333,45 +241,26 @@ export default function PropertyForm({ clientId, initial, onSave, onCancel }: Pr
 
         <div>
           <label className={fl}>Tipo de Vaga — Modelo</label>
-          <select
-            value={tipoVagaModelo}
-            onChange={(e) => setTipoVagaModelo(e.target.value)}
-            className={fi}
-          >
+          <select value={tipoVagaModelo} onChange={(e) => setTipoVagaModelo(e.target.value)} className={fi}>
             <option value="">Indiferente</option>
             <option value="individual">Individual</option>
-            <option value="paralela">Paralela</option>
+            <option value="gaveta">Gaveta</option>
           </select>
         </div>
 
         <div>
           <label className={fl}>Andar</label>
-          <input
-            value={andar}
-            onChange={(e) => setAndar(e.target.value.replace(/\D/g, ''))}
-            className={fi}
-            inputMode="numeric"
-          />
+          <input value={andar} onChange={(e) => setAndar(e.target.value.replace(/\D/g, ''))} className={fi} inputMode="numeric" />
         </div>
 
         <div>
           <label className={fl}>Condomínio (R$/mês)</label>
-          <input
-            value={condominioStr}
-            onChange={handleCondInput}
-            className={fi}
-            inputMode="numeric"
-            placeholder="0,00"
-          />
+          <input value={condominioStr} onChange={handleCondInput} className={fi} inputMode="numeric" placeholder="0,00" />
         </div>
 
         <div>
           <label className={fl}>Prédio novo?</label>
-          <select
-            value={predioNovo}
-            onChange={(e) => setPredioNovo(e.target.value)}
-            className={fi}
-          >
+          <select value={predioNovo} onChange={(e) => setPredioNovo(e.target.value)} className={fi}>
             <option value="">Selecione</option>
             <option value="sim">Sim</option>
             <option value="nao">Não</option>
@@ -380,11 +269,7 @@ export default function PropertyForm({ clientId, initial, onSave, onCancel }: Pr
 
         <div>
           <label className={fl}>Reformado?</label>
-          <select
-            value={reformado}
-            onChange={(e) => setReformado(e.target.value)}
-            className={fi}
-          >
+          <select value={reformado} onChange={(e) => setReformado(e.target.value)} className={fi}>
             <option value="">Selecione</option>
             <option value="sim">Sim</option>
             <option value="nao">Não</option>
@@ -393,11 +278,7 @@ export default function PropertyForm({ clientId, initial, onSave, onCancel }: Pr
 
         <div>
           <label className={fl}>Financiamento?</label>
-          <select
-            value={aceitaFinanciamento}
-            onChange={(e) => setAceitaFinanciamento(e.target.value)}
-            className={fi}
-          >
+          <select value={aceitaFinanciamento} onChange={(e) => setAceitaFinanciamento(e.target.value)} className={fi}>
             <option value="">Selecione</option>
             <option value="sim">Sim</option>
             <option value="nao">Não</option>
@@ -414,16 +295,8 @@ export default function PropertyForm({ clientId, initial, onSave, onCancel }: Pr
             ['aceitaPet', 'Aceita Pet', aceitaPet, setAceitaPet],
           ] as const
         ).map(([key, label, val, setter]) => (
-          <label
-            key={key}
-            className="flex items-center gap-3 text-white bg-white/5 border border-white/10 rounded-2xl px-4 py-3 cursor-pointer"
-          >
-            <input
-              type="checkbox"
-              checked={val}
-              onChange={(e) => setter(e.target.checked)}
-              className="w-5 h-5 accent-red-600"
-            />
+          <label key={key} className="flex items-center gap-3 text-white bg-white/5 border border-white/10 rounded-2xl px-4 py-3 cursor-pointer">
+            <input type="checkbox" checked={val} onChange={(e) => setter(e.target.checked)} className="w-5 h-5 accent-red-600" />
             <span>{label}</span>
           </label>
         ))}
@@ -431,25 +304,12 @@ export default function PropertyForm({ clientId, initial, onSave, onCancel }: Pr
 
       <div>
         <label className={fl}>Link do anúncio</label>
-        <input
-          value={link}
-          onChange={(e) => setLink(e.target.value)}
-          className={fi}
-          placeholder="https://..."
-        />
+        <input value={link} onChange={(e) => setLink(e.target.value)} className={fi} placeholder="https://..." />
       </div>
 
       <div className="space-y-3">
         <label className={fl}>Fotos do imóvel</label>
-
-        <input
-          ref={inputRef}
-          type="file"
-          accept="image/*"
-          multiple
-          onChange={handleFileUpload}
-          className={fi}
-        />
+        <input ref={inputRef} type="file" accept="image/*" multiple onChange={handleFileUpload} className={fi} />
 
         {processingImages && (
           <div className="flex items-center gap-2 text-sm text-zinc-300">
@@ -465,9 +325,7 @@ export default function PropertyForm({ clientId, initial, onSave, onCancel }: Pr
                 <img src={src} alt={`Foto ${i + 1}`} className="w-full h-28 object-cover" />
                 <button
                   type="button"
-                  onClick={() =>
-                    setFotosBase64((prev) => prev.filter((_, j) => j !== i))
-                  }
+                  onClick={() => setFotosBase64((prev) => prev.filter((_, j) => j !== i))}
                   className="absolute top-2 right-2 bg-red-500 text-white w-7 h-7 rounded-full text-xs flex items-center justify-center"
                 >
                   ×
@@ -479,34 +337,19 @@ export default function PropertyForm({ clientId, initial, onSave, onCancel }: Pr
 
         <div>
           <label className={fl}>Ou cole URLs de fotos (separadas por vírgula)</label>
-          <textarea
-            value={fotosUrls}
-            onChange={(e) => setFotosUrls(e.target.value)}
-            className={fi + ' h-16'}
-            placeholder="https://foto1.jpg, https://foto2.jpg"
-          />
+          <textarea value={fotosUrls} onChange={(e) => setFotosUrls(e.target.value)} className={fi + ' h-16'} placeholder="https://foto1.jpg, https://foto2.jpg" />
         </div>
       </div>
 
       <div>
         <label className={fl}>Descrição completa</label>
-        <textarea
-          value={descricao}
-          onChange={(e) => setDescricao(e.target.value)}
-          className={fi + ' h-28'}
-          placeholder="Descreva o imóvel..."
-        />
+        <textarea value={descricao} onChange={(e) => setDescricao(e.target.value)} className={fi + ' h-28'} placeholder="Descreva o imóvel..." />
       </div>
 
       <div className="flex gap-3 pt-2">
-        <button
-          type="button"
-          onClick={onCancel}
-          className="flex-1 py-3 rounded-2xl border border-white/10 text-zinc-300 hover:bg-white/5 transition-colors"
-        >
+        <button type="button" onClick={onCancel} className="flex-1 py-3 rounded-2xl border border-white/10 text-zinc-300 hover:bg-white/5 transition-colors">
           Cancelar
         </button>
-
         <button
           type="button"
           onClick={handleSubmit}
