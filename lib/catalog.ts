@@ -72,14 +72,27 @@ export function generateClientCatalog(client: Client, broker: Broker): void {
     })
     .join('');
 
-  /* ─── MODAIS ─────────────────────────────────────────────────────────── */
+  /* ─── MODAIS + LIGHTBOX ──────────────────────────────────────────────── */
   const detailModals = sorted
     .map((p) => {
       const cp = calculateCompatibility(client, p);
       const fotos = p.fotos || [];
+
+      // Fotos clicáveis com dica visual
       const fotosH = fotos.length
-        ? `<div class="detail-photos">${fotos.map((f, i) => `<img src="${f}" alt="" loading="lazy" class="detail-photo-thumb" onclick="openLightbox('${p.id}',${i})">`).join('')}</div>
-           <p class="foto-dica">&#x1F50D; Clique em uma foto para ampliar</p>`
+        ? `<p class="foto-hint">&#x1F50D; Clique em uma foto para ampliar</p>
+           <div class="detail-photos">${fotos.map((f, i) => `<img src="${f}" alt="" loading="lazy" class="foto-thumb" onclick="openLightbox('${p.id}',${i})" title="Ampliar">`).join('')}</div>`
+        : '';
+
+      // Lightbox individual por imóvel
+      const lightboxH = fotos.length
+        ? `<div class="lb-overlay" id="lb-${p.id}" onclick="if(event.target===this)closeLightbox('${p.id}')">
+             <button class="lb-close" onclick="closeLightbox('${p.id}')">&#x2715;</button>
+             <button class="lb-arrow lb-prev" id="lb-prev-${p.id}" onclick="lbNav('${p.id}',-1)">&#x2039;</button>
+             <img class="lb-img" id="lb-img-${p.id}" src="" alt="">
+             <button class="lb-arrow lb-next" id="lb-next-${p.id}" onclick="lbNav('${p.id}',1)">&#x203A;</button>
+             <div class="lb-counter" id="lb-counter-${p.id}"></div>
+           </div>`
         : '';
 
       const specs: [string, string | number][] = [
@@ -105,8 +118,6 @@ export function generateClientCatalog(client: Client, broker: Broker): void {
         .map(([l, v]) => `<div class="dspec"><strong>${l}</strong><span>${v}</span></div>`)
         .join('');
 
-      const fotosJson = JSON.stringify(fotos);
-
       return `
 <div class="modal-overlay" id="modal-${p.id}" onclick="if(event.target===this)closeDetail('${p.id}')">
   <div class="modal-box">
@@ -123,7 +134,7 @@ export function generateClientCatalog(client: Client, broker: Broker): void {
     ${p.link ? `<p style="margin:12px 0"><a href="${p.link}" target="_blank" rel="noopener noreferrer" style="color:#e50914">Ver an\u00fancio &#x2197;</a></p>` : ''}
   </div>
 </div>
-<script>window.__fotos_${p.id} = ${fotosJson};<\/script>`;
+${lightboxH}`;
     })
     .join('');
 
@@ -247,38 +258,31 @@ ${topImg ? `.hero::before{content:'';position:absolute;inset:0;background:url('$
 .modal-compat{display:inline-block;background:rgba(229,9,20,.15);color:#ff4d57;border:1px solid rgba(229,9,20,.3);border-radius:20px;padding:4px 12px;font-size:12px;font-weight:700;margin-bottom:10px}
 .modal-title{font-size:22px;font-weight:700;color:#fff;margin-bottom:6px}
 .modal-price{font-size:26px;font-weight:700;color:#e50914;margin-bottom:16px}
-
-/* FOTOS DO MODAL — clicáveis */
-.detail-photos{display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:8px;margin-bottom:6px}
-.detail-photo-thumb{width:100%;height:140px;object-fit:cover;border-radius:10px;cursor:pointer;transition:transform .2s,opacity .2s}
-.detail-photo-thumb:hover{transform:scale(1.03);opacity:.88}
-.foto-dica{font-size:11px;color:#71717a;margin-bottom:14px;text-align:center}
-
+.foto-hint{font-size:11px;color:#71717a;margin-bottom:8px;letter-spacing:.04em}
+.detail-photos{display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:8px;margin-bottom:16px}
+.foto-thumb{width:100%;height:130px;object-fit:cover;border-radius:10px;cursor:pointer;transition:transform .2s,opacity .2s}
+.foto-thumb:hover{transform:scale(1.04);opacity:.85}
 .dspecs-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:16px}
 .dspec strong{display:block;font-size:10px;color:#71717a;text-transform:uppercase;margin-bottom:2px}
 .dspec span{font-size:13px;color:#e4e4e7}
 .modal-desc{font-size:13px;color:#a1a1aa;line-height:1.6;border-left:3px solid #e50914;padding-left:12px}
 
 /* LIGHTBOX */
-.lb-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.96);z-index:9999;align-items:center;justify-content:center;flex-direction:column}
+.lb-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.96);z-index:2000;align-items:center;justify-content:center}
 .lb-overlay.lb-open{display:flex}
 .lb-img{max-width:92vw;max-height:82vh;object-fit:contain;border-radius:8px;user-select:none}
-.lb-close{position:fixed;top:18px;right:22px;background:rgba(255,255,255,.12);border:none;color:#fff;font-size:24px;cursor:pointer;border-radius:50%;width:44px;height:44px;display:flex;align-items:center;justify-content:center;transition:background .2s;z-index:10000}
-.lb-close:hover{background:rgba(255,255,255,.25)}
-.lb-prev,.lb-next{position:fixed;top:50%;transform:translateY(-50%);background:rgba(255,255,255,.12);border:none;color:#fff;font-size:28px;cursor:pointer;border-radius:50%;width:52px;height:52px;display:flex;align-items:center;justify-content:center;transition:background .2s;z-index:10000;user-select:none}
-.lb-prev{left:16px}
-.lb-next{right:16px}
-.lb-prev:hover,.lb-next:hover{background:rgba(255,255,255,.25)}
-.lb-counter{position:fixed;bottom:20px;left:50%;transform:translateX(-50%);color:#a1a1aa;font-size:13px;font-family:'Inter',sans-serif}
-@media(max-width:600px){
-  .lb-prev{left:6px;width:42px;height:42px;font-size:22px}
-  .lb-next{right:6px;width:42px;height:42px;font-size:22px}
-}
+.lb-close{position:fixed;top:18px;right:22px;background:rgba(255,255,255,.15);border:none;color:#fff;font-size:22px;cursor:pointer;border-radius:50%;width:44px;height:44px;display:flex;align-items:center;justify-content:center;z-index:2001;transition:.2s}
+.lb-close:hover{background:rgba(255,255,255,.28)}
+.lb-arrow{position:fixed;top:50%;transform:translateY(-50%);background:rgba(255,255,255,.15);border:none;color:#fff;font-size:48px;cursor:pointer;border-radius:50%;width:54px;height:54px;display:flex;align-items:center;justify-content:center;z-index:2001;transition:.2s;line-height:1;padding-bottom:2px}
+.lb-arrow:hover{background:rgba(255,255,255,.28)}
+.lb-prev{left:14px}
+.lb-next{right:14px}
+.lb-counter{position:fixed;bottom:22px;left:50%;transform:translateX(-50%);color:rgba(255,255,255,.65);font-size:13px;z-index:2001;background:rgba(0,0,0,.55);padding:4px 16px;border-radius:20px}
 
 /* PRINT */
 @media print{
   body{background:#fff;color:#111}
-  .hero,.section-title,.hero-actions,.stars-row,.card-actions,.modal-overlay,footer,.lb-overlay{display:none!important}
+  .hero,.section-title,.hero-actions,.stars-row,.card-actions,.modal-overlay,.lb-overlay,footer{display:none!important}
   .grid{display:block}
   .card{break-inside:avoid;border:1px solid #ddd;background:#fff;margin-bottom:20px;page-break-inside:avoid}
   .card-img{max-height:220px}
@@ -302,19 +306,14 @@ ${topImg ? `.hero::before{content:'';position:absolute;inset:0;background:url('$
   .hero-right{text-align:left;align-items:flex-start;min-width:unset;max-width:unset}
   .hero-feat-name{max-width:none}
   .dspecs-grid{grid-template-columns:repeat(2,1fr)}
+  .detail-photos{grid-template-columns:repeat(auto-fill,minmax(120px,1fr))}
+  .lb-arrow{width:42px;height:42px;font-size:36px}
+  .lb-prev{left:6px}
+  .lb-next{right:6px}
 }
 </style>
 </head>
 <body>
-
-<!-- LIGHTBOX GLOBAL -->
-<div class="lb-overlay" id="lb-overlay" onclick="if(event.target===this)closeLightbox()">
-  <button class="lb-close" onclick="closeLightbox()">&#x2715;</button>
-  <button class="lb-prev" id="lb-prev" onclick="lbNav(-1)">&#x2039;</button>
-  <img class="lb-img" id="lb-img" src="" alt="">
-  <button class="lb-next" id="lb-next" onclick="lbNav(1)">&#x203A;</button>
-  <div class="lb-counter" id="lb-counter"></div>
-</div>
 
 <div class="hero">
   <div class="hero-inner">
@@ -373,7 +372,7 @@ const BROKER_TELEFONE = ${JSON.stringify(brokerTelefone)};
 const BROKER_EMAIL = ${JSON.stringify(brokerEmail)};
 const CLIENT_NOME = ${JSON.stringify(client.nome)};
 
-/* ── MODAL DE DETALHE ── */
+// ── MODAL ──
 function openDetail(id) {
   document.getElementById('modal-' + id)?.classList.add('open');
   document.body.style.overflow = 'hidden';
@@ -383,60 +382,73 @@ function closeDetail(id) {
   document.body.style.overflow = '';
 }
 
-/* ── LIGHTBOX ── */
-var _lbFotos = [];
-var _lbIdx = 0;
+// ── LIGHTBOX ──
+const lbState = {};
 
 function openLightbox(propId, idx) {
-  var fotos = window['__fotos_' + propId] || [];
-  if (!fotos.length) return;
-  _lbFotos = fotos;
-  _lbIdx = idx;
-  _lbRender();
-  document.getElementById('lb-overlay').classList.add('lb-open');
+  const el = document.getElementById('lb-' + propId);
+  if (!el) return;
+  const thumbs = document.querySelectorAll('#modal-' + propId + ' .foto-thumb');
+  const srcs = Array.from(thumbs).map(function(t) { return t.getAttribute('src'); });
+  lbState[propId] = { srcs: srcs, cur: idx };
+  lbRender(propId);
+  el.classList.add('lb-open');
   document.body.style.overflow = 'hidden';
 }
-function closeLightbox() {
-  document.getElementById('lb-overlay').classList.remove('lb-open');
+
+function closeLightbox(propId) {
+  document.getElementById('lb-' + propId)?.classList.remove('lb-open');
   document.body.style.overflow = '';
 }
-function lbNav(dir) {
-  _lbIdx = (_lbIdx + dir + _lbFotos.length) % _lbFotos.length;
-  _lbRender();
-}
-function _lbRender() {
-  document.getElementById('lb-img').src = _lbFotos[_lbIdx];
-  document.getElementById('lb-counter').textContent = (_lbIdx + 1) + ' / ' + _lbFotos.length;
-  document.getElementById('lb-prev').style.display = _lbFotos.length > 1 ? 'flex' : 'none';
-  document.getElementById('lb-next').style.display = _lbFotos.length > 1 ? 'flex' : 'none';
+
+function lbRender(propId) {
+  var state = lbState[propId];
+  if (!state) return;
+  var img = document.getElementById('lb-img-' + propId);
+  var counter = document.getElementById('lb-counter-' + propId);
+  var prev = document.getElementById('lb-prev-' + propId);
+  var next = document.getElementById('lb-next-' + propId);
+  if (img) img.src = state.srcs[state.cur];
+  if (counter) counter.textContent = (state.cur + 1) + ' / ' + state.srcs.length;
+  if (prev) prev.style.display = state.srcs.length > 1 ? 'flex' : 'none';
+  if (next) next.style.display = state.srcs.length > 1 ? 'flex' : 'none';
 }
 
-/* Swipe no celular */
-var _lbTouchX = null;
-document.getElementById('lb-overlay').addEventListener('touchstart', function(e){ _lbTouchX = e.touches[0].clientX; }, {passive:true});
-document.getElementById('lb-overlay').addEventListener('touchend', function(e){
-  if (_lbTouchX === null) return;
-  var dx = e.changedTouches[0].clientX - _lbTouchX;
-  if (Math.abs(dx) > 40) lbNav(dx < 0 ? 1 : -1);
-  _lbTouchX = null;
-}, {passive:true});
+function lbNav(propId, dir) {
+  var state = lbState[propId];
+  if (!state) return;
+  state.cur = (state.cur + dir + state.srcs.length) % state.srcs.length;
+  lbRender(propId);
+}
 
+// ESC fecha lightbox ou modal
 document.addEventListener('keydown', function(e) {
-  if (document.getElementById('lb-overlay').classList.contains('lb-open')) {
-    if (e.key === 'ArrowRight') lbNav(1);
-    else if (e.key === 'ArrowLeft') lbNav(-1);
-    else if (e.key === 'Escape') closeLightbox();
-    return;
-  }
   if (e.key === 'Escape') {
-    document.querySelectorAll('.modal-overlay.open').forEach(function(m) {
-      m.classList.remove('open');
+    var lbOpen = document.querySelectorAll('.lb-overlay.lb-open');
+    if (lbOpen.length) {
+      lbOpen.forEach(function(el) { el.classList.remove('lb-open'); });
       document.body.style.overflow = '';
-    });
+    } else {
+      document.querySelectorAll('.modal-overlay.open').forEach(function(m) {
+        m.classList.remove('open');
+        document.body.style.overflow = '';
+      });
+    }
   }
 });
 
-/* ── AVALIAÇÕES (ESTRELAS) ── */
+// Swipe mobile no lightbox
+document.querySelectorAll('.lb-overlay').forEach(function(el) {
+  var startX = 0;
+  var propId = el.id.replace('lb-', '');
+  el.addEventListener('touchstart', function(e) { startX = e.touches[0].clientX; }, { passive: true });
+  el.addEventListener('touchend', function(e) {
+    var dx = e.changedTouches[0].clientX - startX;
+    if (Math.abs(dx) > 50) lbNav(propId, dx < 0 ? 1 : -1);
+  }, { passive: true });
+});
+
+// ── RATINGS ──
 function saveRatings(ratings) {
   try { localStorage.setItem(RATINGS_KEY, JSON.stringify(ratings)); } catch {}
 }
@@ -464,9 +476,8 @@ document.querySelectorAll('.star').forEach(function(star) {
 });
 applyRatings();
 
-/* ── PDF ── */
 function printCard(id) {
-  var card = PRINT_CARDS.find(function(c){ return c.id === id; });
+  var card = PRINT_CARDS.find(function(c) { return c.id === id; });
   if (!card) return;
 
   var now = new Date().toLocaleDateString('pt-BR');
@@ -487,100 +498,48 @@ function printCard(id) {
       }).join('') + '</div>'
     : '';
 
-  var htmlPdf = '<!DOCTYPE html>' +
-    '<html lang="pt-BR"><head>' +
-    '<meta charset="UTF-8">' +
-    '<title>Apresenta\u00e7\u00e3o - ' + card.titulo + '</title>' +
+  var htmlPdf = '<!DOCTYPE html><html lang="pt-BR"><head><meta charset="UTF-8"><title>Apresenta\u00e7\u00e3o - ' + card.titulo + '</title>' +
     '<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">' +
-    '<style>' +
-    '*{box-sizing:border-box;margin:0;padding:0}' +
-    'body{font-family:Inter,sans-serif;background:#fff;color:#111;padding:0}' +
-    '@page{size:A4;margin:0}' +
-    '.pagina{width:210mm;min-height:297mm;padding:12mm 14mm;display:flex;flex-direction:column;page-break-after:always}' +
-    '.pagina:last-child{page-break-after:auto}' +
+    '<style>*{box-sizing:border-box;margin:0;padding:0}body{font-family:Inter,sans-serif;background:#fff;color:#111;padding:0}@page{size:A4;margin:0}' +
+    '.pagina{width:210mm;min-height:297mm;padding:12mm 14mm;display:flex;flex-direction:column;page-break-after:always}.pagina:last-child{page-break-after:auto}' +
     '.cabecalho{background:#e50914;color:#fff;border-radius:12px;padding:18px 22px;display:flex;justify-content:space-between;align-items:center;margin-bottom:16px}' +
-    '.cab-titulo{font-size:11px;font-weight:600;letter-spacing:.12em;text-transform:uppercase;opacity:.85;margin-bottom:4px}' +
-    '.cab-bairro{font-size:26px;font-weight:700;line-height:1.1}' +
-    '.cab-para-label{font-size:10px;opacity:.75;text-align:right;margin-bottom:3px}' +
-    '.cab-para-nome{font-size:16px;font-weight:700;text-align:right}' +
+    '.cab-titulo{font-size:11px;font-weight:600;letter-spacing:.12em;text-transform:uppercase;opacity:.85;margin-bottom:4px}.cab-bairro{font-size:26px;font-weight:700;line-height:1.1}' +
+    '.cab-para-label{font-size:10px;opacity:.75;text-align:right;margin-bottom:3px}.cab-para-nome{font-size:16px;font-weight:700;text-align:right}' +
     '.corretor-box{background:#f8f8f8;border-radius:10px;padding:14px 18px;display:flex;justify-content:space-between;align-items:center;margin-bottom:16px}' +
     '.corretor-label{font-size:9px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:#888;margin-bottom:6px}' +
-    '.corretor-nome{font-size:18px;font-weight:700;color:#111;margin-bottom:2px}' +
-    '.corretor-empresa{font-size:12px;color:#555;margin-bottom:4px}' +
-    '.corretor-contatos{font-size:12px;color:#333}' +
-    '.compat-box{text-align:center;background:#e50914;color:#fff;border-radius:10px;padding:12px 20px;min-width:110px}' +
-    '.compat-num{font-size:32px;font-weight:700;line-height:1}' +
+    '.corretor-nome{font-size:18px;font-weight:700;color:#111;margin-bottom:2px}.corretor-empresa{font-size:12px;color:#555;margin-bottom:4px}.corretor-contatos{font-size:12px;color:#333}' +
+    '.compat-box{text-align:center;background:#e50914;color:#fff;border-radius:10px;padding:12px 20px;min-width:110px}.compat-num{font-size:32px;font-weight:700;line-height:1}' +
     '.compat-label{font-size:9px;font-weight:600;letter-spacing:.1em;text-transform:uppercase;opacity:.85;margin-top:2px}' +
-    '.preco-row{display:flex;justify-content:space-between;align-items:center;margin-bottom:14px}' +
-    '.preco{font-size:28px;font-weight:700;color:#e50914}' +
-    '.titulo-imovel{font-size:14px;font-weight:600;color:#333}' +
+    '.preco-row{display:flex;justify-content:space-between;align-items:center;margin-bottom:14px}.preco{font-size:28px;font-weight:700;color:#e50914}.titulo-imovel{font-size:14px;font-weight:600;color:#333}' +
     '.foto-principal{width:100%;max-height:200px;object-fit:cover;border-radius:10px;margin-bottom:14px}' +
     '.specs-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:14px}' +
-    '.ps{background:#f8f8f8;border-radius:8px;padding:8px 10px}' +
-    '.ps strong{display:block;font-size:8px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:#888;margin-bottom:3px}' +
-    '.ps span{font-size:13px;font-weight:600;color:#111}' +
-    '.fotos-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin-bottom:14px}' +
-    '.fotos-grid img{width:100%;height:90px;object-fit:cover;border-radius:8px}' +
+    '.ps{background:#f8f8f8;border-radius:8px;padding:8px 10px}.ps strong{display:block;font-size:8px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:#888;margin-bottom:3px}.ps span{font-size:13px;font-weight:600;color:#111}' +
+    '.fotos-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin-bottom:14px}.fotos-grid img{width:100%;height:90px;object-fit:cover;border-radius:8px}' +
     '.descricao{font-size:12px;color:#444;line-height:1.6;border-left:3px solid #e50914;padding-left:10px;margin-bottom:14px}' +
-    '.rodape{margin-top:auto;padding-top:12px;border-top:1px solid #eee;display:flex;justify-content:space-between;align-items:center;font-size:10px;color:#888}' +
-    '.rodape-marca{font-size:13px;font-weight:700;color:#e50914}' +
+    '.rodape{margin-top:auto;padding-top:12px;border-top:1px solid #eee;display:flex;justify-content:space-between;align-items:center;font-size:10px;color:#888}.rodape-marca{font-size:13px;font-weight:700;color:#e50914}' +
     '.p2-atendimento{background:#f8f8f8;border-radius:10px;padding:18px 22px;margin-bottom:20px}' +
-    '.p2-at-label{font-size:9px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:#888;margin-bottom:10px}' +
-    '.p2-at-nome{font-size:18px;font-weight:700;color:#111;margin-bottom:4px}' +
-    '.p2-at-contato{font-size:13px;color:#333;margin-bottom:2px}' +
-    '.p2-nota{font-size:11px;color:#888;line-height:1.6;margin-top:20px}' +
-    '@media print{button{display:none!important}}' +
-    '</style></head><body>' +
+    '.p2-at-label{font-size:9px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:#888;margin-bottom:10px}.p2-at-nome{font-size:18px;font-weight:700;color:#111;margin-bottom:4px}' +
+    '.p2-at-contato{font-size:13px;color:#333;margin-bottom:2px}.p2-nota{font-size:11px;color:#888;line-height:1.6;margin-top:20px}' +
+    '@media print{button{display:none!important}}</style></head><body>' +
     '<div class="pagina">' +
-    '<div class="cabecalho">' +
-    '<div><div class="cab-titulo">Apresenta\u00e7\u00e3o de Im\u00f3vel</div>' +
-    '<div class="cab-bairro">' + (card.bairro || card.titulo) + '</div></div>' +
-    '<div><div class="cab-para-label">Para:</div>' +
-    '<div class="cab-para-nome">' + CLIENT_NOME + '</div></div>' +
-    '</div>' +
-    '<div class="corretor-box">' +
-    '<div><div class="corretor-label">Corretor Respons\u00e1vel</div>' +
-    '<div class="corretor-nome">' + BROKER_NOME + '</div>' +
+    '<div class="cabecalho"><div><div class="cab-titulo">Apresenta\u00e7\u00e3o de Im\u00f3vel</div><div class="cab-bairro">' + (card.bairro || card.titulo) + '</div></div>' +
+    '<div><div class="cab-para-label">Para:</div><div class="cab-para-nome">' + CLIENT_NOME + '</div></div></div>' +
+    '<div class="corretor-box"><div><div class="corretor-label">Corretor Respons\u00e1vel</div><div class="corretor-nome">' + BROKER_NOME + '</div>' +
     (BROKER_EMPRESA ? '<div class="corretor-empresa">' + BROKER_EMPRESA + '</div>' : '') +
-    '<div class="corretor-contatos">' +
-    (BROKER_EMAIL ? BROKER_EMAIL + '<br>' : '') +
-    (BROKER_TELEFONE ? BROKER_TELEFONE : '') +
-    '</div></div>' +
-    '<div class="compat-box"><div class="compat-num">' + card.cp + '%</div>' +
-    '<div class="compat-label">Compatibilidade</div></div>' +
-    '</div>' +
-    '<div class="preco-row">' +
-    '<div class="preco">R$\u00a0' + card.preco + '</div>' +
-    '<div class="titulo-imovel">' + card.titulo + '</div>' +
-    '</div>' +
+    '<div class="corretor-contatos">' + (BROKER_EMAIL ? BROKER_EMAIL + '<br>' : '') + (BROKER_TELEFONE || '') + '</div></div>' +
+    '<div class="compat-box"><div class="compat-num">' + card.cp + '%</div><div class="compat-label">Compatibilidade</div></div></div>' +
+    '<div class="preco-row"><div class="preco">R$\u00a0' + card.preco + '</div><div class="titulo-imovel">' + card.titulo + '</div></div>' +
     fotosPrincipal +
     '<div class="specs-grid">' + specsHtml + '</div>' +
     (card.descricao ? '<div class="descricao">' + card.descricao + '</div>' : '') +
-    '<div class="rodape">' +
-    '<div><div class="rodape-marca">' + BROKER_NOME + '</div>' +
-    (BROKER_TELEFONE ? '<div>' + BROKER_TELEFONE + '</div>' : '') + '</div>' +
-    '<div>' + now + '</div>' +
-    '</div>' +
-    '</div>' +
-    '<div class="pagina">' +
-    '<div class="cabecalho">' +
-    '<div><div class="cab-titulo">Detalhes do Im\u00f3vel</div>' +
-    '<div class="cab-bairro">' + card.titulo + '</div></div>' +
-    '<div><div class="cab-para-label">Para:</div>' +
-    '<div class="cab-para-nome">' + CLIENT_NOME + '</div></div>' +
-    '</div>' +
+    '<div class="rodape"><div><div class="rodape-marca">' + BROKER_NOME + '</div>' + (BROKER_TELEFONE ? '<div>' + BROKER_TELEFONE + '</div>' : '') + '</div><div>' + now + '</div></div></div>' +
+    '<div class="pagina"><div class="cabecalho"><div><div class="cab-titulo">Detalhes do Im\u00f3vel</div><div class="cab-bairro">' + card.titulo + '</div></div>' +
+    '<div><div class="cab-para-label">Para:</div><div class="cab-para-nome">' + CLIENT_NOME + '</div></div></div>' +
     (card.fotos.length > 1 ? fotosExtras : '') +
-    '<div class="p2-atendimento">' +
-    '<div class="p2-at-label">Atendimento</div>' +
-    '<div class="p2-at-nome">' + BROKER_NOME + '</div>' +
+    '<div class="p2-atendimento"><div class="p2-at-label">Atendimento</div><div class="p2-at-nome">' + BROKER_NOME + '</div>' +
     (BROKER_TELEFONE ? '<div class="p2-at-contato">Contato: ' + BROKER_TELEFONE + (BROKER_EMPRESA ? '\u00a0\u00a0|\u00a0\u00a0' + BROKER_EMPRESA : '') + '</div>' : '') +
-    '<div class="p2-nota">Documento gerado para apresenta\u00e7\u00e3o do im\u00f3vel ao cliente.</div>' +
-    '</div>' +
-    '<div class="rodape">' +
-    '<div><div class="rodape-marca">' + BROKER_NOME + '</div></div>' +
-    '<div>' + now + '</div>' +
-    '</div>' +
-    '</div>' +
+    '<div class="p2-nota">Documento gerado para apresenta\u00e7\u00e3o do im\u00f3vel ao cliente.</div></div>' +
+    '<div class="rodape"><div><div class="rodape-marca">' + BROKER_NOME + '</div></div><div>' + now + '</div></div></div>' +
     '</body></html>';
 
   var blob = new Blob([htmlPdf], { type: 'text/html;charset=utf-8' });
