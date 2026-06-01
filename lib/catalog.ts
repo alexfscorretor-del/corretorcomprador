@@ -15,7 +15,7 @@ export function generateClientCatalog(client: Client, broker: Broker): void {
   const brokerNome     = broker.nome || 'Corretor';
   const brokerTelefone = broker.telefone || '';
   const brokerEmail    = broker.email    || '';
-  const brokerEmpresa  = (broker as Record<string, unknown>).empresa as string || '';
+  const brokerEmpresa  = broker.empresa  || '';
 
   /* ─── DADOS PARA PDF (printCard) ───────────────────────────────────────── */
   const printCardsData = sorted.map((p) => {
