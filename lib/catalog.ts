@@ -1,5 +1,11 @@
 import { Client, Broker } from '@/types';
 import { calculateCompatibility } from './compatibility';
+import { CARD_TOKENS as T } from '@/components/PropertyCard';
+
+// ──────────────────────────────────────────────────────────────────────────────
+// catalog.ts — página gerada para o cliente
+// Usa os mesmos CARD_TOKENS do PropertyCard.tsx como fonte única de verdade.
+// ──────────────────────────────────────────────────────────────────────────────
 
 export function generateClientCatalog(client: Client, broker: Broker): void {
   if (!client.properties || client.properties.length === 0) {
@@ -12,10 +18,11 @@ export function generateClientCatalog(client: Client, broker: Broker): void {
   );
 
   const ratingsKey = `ratings_${client.id}`;
+  const fbKey      = `feedback_${client.id}`;
 
   const topProp = sorted[0];
-  const cpTop = calculateCompatibility(client, topProp);
-  const topImg = topProp.fotos?.[0] || '';
+  const cpTop   = calculateCompatibility(client, topProp);
+  const topImg  = topProp.fotos?.[0] || '';
 
   const brokerNome =
     (broker as any).nomeExibicao ||
@@ -23,161 +30,157 @@ export function generateClientCatalog(client: Client, broker: Broker): void {
     broker.nome ||
     'Seu corretor';
 
-  const brokerEmpresa = (broker as any).empresa || '';
+  const brokerEmpresa  = (broker as any).empresa || '';
   const brokerTelefone = (broker as any).telefone || broker.telefone || '';
-  const brokerEmail = (broker as any).email || '';
+  const brokerEmail    = (broker as any).email || '';
 
-  /* ─── CARDS ─────────────────────────────────────────────────────────── */
-  const cards = sorted
-    .map((p) => {
-      const cp = calculateCompatibility(client, p);
-      const imgSrc = p.fotos?.[0] || '';
-      const stars = [1, 2, 3, 4, 5]
-        .map(
-          (n) =>
-            `<span class="star" data-id="${p.id}" data-val="${n}" style="color:${
-              (p.rating || 0) >= n ? '#facc15' : '#3f3f46'
-            };cursor:pointer;font-size:20px;">&#9733;</span>`
-        )
-        .join('');
+  // ─── DESIGN TOKENS inline (mesmo valor de CARD_TOKENS) ───────────────────
+  const RED        = '#E50914';
+  const RED_TEXT   = '#ef4444';
+  const BG_CARD    = 'rgba(255,255,255,0.05)';
+  const BORDER     = 'rgba(255,255,255,0.1)';
+  const RADIUS     = '24px';
+  const RADIUS_SM  = '16px';
+  const RADIUS_XS  = '12px';
+  const TRANSITION = 'all .3s cubic-bezier(.4,0,.2,1)';
 
-      return `
-<div class="card" data-id="${p.id}">
-  ${
-    imgSrc
-      ? `<img src="${imgSrc}" class="card-img" alt="${p.titulo}" loading="lazy">`
-      : '<div class="card-img-placeholder"></div>'
-  }
-  <div class="card-body">
-    <div class="card-top">
-      <span class="compat-badge">${cp}% Compat\u00edvel</span>
-      <span class="price-sm">R$\u00a0${Number(p.preco).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
-    </div>
-    <h3 class="card-title">${p.titulo}</h3>
-    <p class="card-bairro">${p.bairro || ''}</p>
-    <div class="card-specs">
-      ${p.quartos != null ? `<span>&#x1F6CF; ${p.quartos} quartos</span>` : ''}
-      ${p.suites != null ? `<span>&#x1F6BF; ${p.suites} su\u00edtes</span>` : ''}
-      ${p.vagas != null ? `<span>&#x1F697; ${p.vagas} vagas</span>` : ''}
-      ${p.tamanho != null ? `<span>&#x1F4D0; ${p.tamanho}m\u00b2</span>` : ''}
-    </div>
-    <div class="stars-row" data-id="${p.id}">${stars}</div>
-    ${p.descricao ? `<p class="card-desc">${p.descricao}</p>` : ''}
-    <div class="card-actions">
-      <button class="btn-detail" onclick="openDetail('${p.id}')">Ver detalhes</button>
-      <button class="btn-pdf" onclick="printCard('${p.id}')">&#x1F4C4; PDF</button>
-    </div>
-  </div>
-</div>`;
-    })
-    .join('');
-
-  /* ─── MODAIS + LIGHTBOX ──────────────────────────────────────────────── */
-  const detailModals = sorted
-    .map((p) => {
-      const cp = calculateCompatibility(client, p);
-      const fotos = p.fotos || [];
-
-      // Fotos clicáveis com dica visual
-      const fotosH = fotos.length
-        ? `<p class="foto-hint">&#x1F50D; Clique em uma foto para ampliar</p>
-           <div class="detail-photos">${fotos.map((f, i) => `<img src="${f}" alt="" loading="lazy" class="foto-thumb" onclick="openLightbox('${p.id}',${i})" title="Ampliar">`).join('')}</div>`
-        : '';
-
-      // Lightbox individual por imóvel
-      const lightboxH = fotos.length
-        ? `<div class="lb-overlay" id="lb-${p.id}" onclick="if(event.target===this)closeLightbox('${p.id}')">
-             <button class="lb-close" onclick="closeLightbox('${p.id}')">&#x2715;</button>
-             <button class="lb-arrow lb-prev" id="lb-prev-${p.id}" onclick="lbNav('${p.id}',-1)">&#x2039;</button>
-             <img class="lb-img" id="lb-img-${p.id}" src="" alt="">
-             <button class="lb-arrow lb-next" id="lb-next-${p.id}" onclick="lbNav('${p.id}',1)">&#x203A;</button>
-             <div class="lb-counter" id="lb-counter-${p.id}"></div>
-           </div>`
-        : '';
-
-      const specs: [string, string | number][] = [
-        ['Tipo', p.tipoImovel || '-'],
-        ['Bairro', p.bairro || '-'],
-        ['\u00c1rea', (p.tamanho || '?') + 'm\u00b2'],
-        ['Quartos', p.quartos ?? '-'],
-        ['Su\u00edtes', p.suites ?? '-'],
-        ['Banheiros', p.banheiros ?? '-'],
-        ['Vagas', p.vagas ?? '-'],
-        ['Andar', p.andar ?? '-'],
-        ['Condom\u00ednio', p.condominio ? 'R$ ' + Number(p.condominio).toLocaleString('pt-BR', { minimumFractionDigits: 2 }) : '-'],
-        ['Pr\u00e9dio Novo', p.predioNovo || '-'],
-        ['Reformado', p.reformado || '-'],
-        ['Mobiliado', p.mobiliado ? 'Sim' : 'N\u00e3o'],
-        ['Varanda', p.varanda ? 'Sim' : 'N\u00e3o'],
-        ['\u00c1rea Lazer', p.areaLazer ? 'Sim' : 'N\u00e3o'],
-        ['Pet', p.aceitaPet ? 'Sim' : 'N\u00e3o'],
-        ['Financiamento', p.aceitaFinanciamento || '-'],
-      ];
-
-      const specsH = specs
-        .map(([l, v]) => `<div class="dspec"><strong>${l}</strong><span>${v}</span></div>`)
-        .join('');
-
-      return `
-<div class="modal-overlay" id="modal-${p.id}" onclick="if(event.target===this)closeDetail('${p.id}')">
-  <div class="modal-box">
-    <div class="modal-header">
-      <button class="modal-close" onclick="closeDetail('${p.id}')">&#x2715;</button>
-      <button class="modal-pdf-btn" onclick="printCard('${p.id}')">&#x1F4C4; Gerar PDF</button>
-    </div>
-    <div class="modal-compat">${cp}% compat\u00edvel</div>
-    <h2 class="modal-title">${p.titulo}</h2>
-    <div class="modal-price">R$\u00a0${Number(p.preco).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</div>
-    ${fotosH}
-    <div class="dspecs-grid">${specsH}</div>
-    ${p.descricao ? `<div class="modal-desc">${p.descricao}</div>` : ''}
-    ${p.link ? `<p style="margin:12px 0"><a href="${p.link}" target="_blank" rel="noopener noreferrer" style="color:#e50914">Ver an\u00fancio &#x2197;</a></p>` : ''}
-  </div>
-</div>
-${lightboxH}`;
-    })
-    .join('');
-
-  /* ─── PRINT CARDS DATA ────────────────────────────────────────────────── */
+  // ─── PRINT CARDS DATA ────────────────────────────────────────────────────
   const printCardsData = sorted.map((p) => {
     const cp = calculateCompatibility(client, p);
-    const imgSrc = p.fotos?.[0] || '';
-    const fotos = p.fotos || [];
-
     const specs: [string, string | number][] = [
-      ['TIPO', p.tipoImovel || '-'],
-      ['BAIRRO', p.bairro || '-'],
-      ['\u00c1REA', (p.tamanho || '?') + 'm\u00b2'],
-      ['QUARTOS', p.quartos ?? '-'],
-      ['SU\u00cdTES', p.suites ?? '-'],
-      ['BANHEIROS', p.banheiros ?? '-'],
-      ['VAGAS', p.vagas ?? '-'],
-      ['ANDAR', p.andar ?? '-'],
-      ['CONDOM\u00cdNIO', p.condominio ? 'R$ ' + Number(p.condominio).toLocaleString('pt-BR', { minimumFractionDigits: 2 }) : '-'],
-      ['PR\u00c9DIO NOVO', p.predioNovo || '-'],
-      ['REFORMADO', p.reformado || '-'],
-      ['MOBILIADO', p.mobiliado ? 'Sim' : 'N\u00e3o'],
-      ['VARANDA', p.varanda ? 'Sim' : 'N\u00e3o'],
-      ['\u00c1REA LAZER', p.areaLazer ? 'Sim' : 'N\u00e3o'],
-      ['PET', p.aceitaPet ? 'Sim' : 'N\u00e3o'],
+      ['TIPO',          p.tipoImovel || '-'],
+      ['BAIRRO',        p.bairro || '-'],
+      ['\u00c1REA',         (p.tamanho || '?') + 'm\u00b2'],
+      ['QUARTOS',       p.quartos ?? '-'],
+      ['SU\u00cdTES',       p.suites ?? '-'],
+      ['BANHEIROS',     p.banheiros ?? '-'],
+      ['VAGAS',         p.vagas ?? '-'],
+      ['ANDAR',         p.andar ?? '-'],
+      ['CONDOM\u00cdNIO',    p.condominio ? 'R$ ' + Number(p.condominio).toLocaleString('pt-BR', { minimumFractionDigits: 2 }) : '-'],
+      ['PR\u00c9DIO NOVO',   p.predioNovo || '-'],
+      ['REFORMADO',     p.reformado || '-'],
+      ['MOBILIADO',     p.mobiliado ? 'Sim' : 'N\u00e3o'],
+      ['VARANDA',       p.varanda ? 'Sim' : 'N\u00e3o'],
+      ['\u00c1REA LAZER',    p.areaLazer ? 'Sim' : 'N\u00e3o'],
+      ['PET',           p.aceitaPet ? 'Sim' : 'N\u00e3o'],
       ['FINANCIAMENTO', p.aceitaFinanciamento || '-'],
     ];
-
     return {
-      id: p.id,
-      titulo: p.titulo,
-      bairro: p.bairro || '',
+      id: p.id, titulo: p.titulo, bairro: p.bairro || '',
       preco: Number(p.preco).toLocaleString('pt-BR', { minimumFractionDigits: 2 }),
-      cp,
-      imgSrc,
-      fotos,
-      specs,
-      descricao: p.descricao || '',
-      link: p.link || '',
+      cp, imgSrc: p.fotos?.[0] || '', fotos: p.fotos || [],
+      specs, descricao: p.descricao || '', link: p.link || '',
     };
   });
 
-  /* ─── HTML ───────────────────────────────────────────────────────────── */
+  // ─── CARDS HTML ──────────────────────────────────────────────────────────
+  const cards = sorted.map((p) => {
+    const cp     = calculateCompatibility(client, p);
+    const imgSrc = p.fotos?.[0] || '';
+    const stars  = [1, 2, 3, 4, 5]
+      .map(n => `<button class="star" data-id="${p.id}" data-val="${n}" aria-label="${n} estrelas">&#9733;</button>`)
+      .join('');
+
+    return `
+<article class="card" data-id="${p.id}" onclick="openDetail('${p.id}')" role="button" tabindex="0" aria-label="Ver detalhes de ${p.titulo}">
+  <div class="card-img-wrap">
+    ${imgSrc ? `<img src="${imgSrc}" class="card-img" alt="${p.titulo}" loading="lazy">` : '<div class="card-img-ph">📷</div>'}
+    <div class="compat-badge">${cp}% Compat\u00edvel</div>
+    <button class="fav-btn" data-id="${p.id}" onclick="toggleFav(event,'${p.id}')" aria-label="Favoritar">&#x2665;</button>
+  </div>
+  <div class="card-body">
+    <h3 class="card-title">${p.titulo}</h3>
+    <p class="card-price">R$\u00a0${Number(p.preco).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
+    <p class="card-meta">${p.bairro || '-'} \u2022 ${p.tamanho || '?'}m\u00b2 \u2022 ${p.quartos ?? 0} qtos \u2022 ${p.vagas ?? 0} vaga(s)</p>
+    <div class="stars-row" onclick="event.stopPropagation()">${stars}</div>
+    <div class="card-actions" onclick="event.stopPropagation()">
+      <button class="btn-like" data-id="${p.id}" onclick="toggleLike(event,'${p.id}',true)">\uD83D\uDC4D Gostei</button>
+      <button class="btn-dislike" data-id="${p.id}" onclick="toggleLike(event,'${p.id}',false)">\uD83D\uDC4E N\u00e3o gostei</button>
+    </div>
+  </div>
+</article>`;
+  }).join('');
+
+  // ─── MODAIS ───────────────────────────────────────────────────────────────
+  const modals = sorted.map((p) => {
+    const cp     = calculateCompatibility(client, p);
+    const fotos  = p.fotos || [];
+    const specs: [string, string | number][] = [
+      ['Tipo',          p.tipoImovel || '-'],
+      ['Bairro',        p.bairro || '-'],
+      ['\u00c1rea',         (p.tamanho || '?') + 'm\u00b2'],
+      ['Quartos',       p.quartos ?? '-'],
+      ['Su\u00edtes',       p.suites ?? '-'],
+      ['Banheiros',     p.banheiros ?? '-'],
+      ['Vagas',         p.vagas ?? '-'],
+      ['Andar',         p.andar ?? '-'],
+      ['Condom\u00ednio',    p.condominio ? 'R$ ' + Number(p.condominio).toLocaleString('pt-BR', { minimumFractionDigits: 2 }) : '-'],
+      ['Pr\u00e9dio Novo',   p.predioNovo || '-'],
+      ['Reformado',     p.reformado || '-'],
+      ['Mobiliado',     p.mobiliado ? 'Sim' : 'N\u00e3o'],
+      ['Varanda',       p.varanda ? 'Sim' : 'N\u00e3o'],
+      ['\u00c1rea Lazer',    p.areaLazer ? 'Sim' : 'N\u00e3o'],
+      ['Pet',           p.aceitaPet ? 'Sim' : 'N\u00e3o'],
+      ['Financiamento', p.aceitaFinanciamento || '-'],
+    ];
+    const specsH = specs.map(([l, v]) => `<div class="spec"><strong>${l}</strong><span>${v}</span></div>`).join('');
+    const galleryH = fotos.length > 1
+      ? `<div class="gallery-grid">${fotos.map((f, i) => `<div class="gthumb" onclick="openLB('${p.id}',${i})"><img src="${f}" alt="Foto ${i+1}" loading="lazy"></div>`).join('')}</div>`
+      : '';
+
+    return `
+<div class="modal-ov" id="modal-${p.id}" onclick="if(event.target===this)closeDetail('${p.id}')" role="dialog" aria-modal="true" aria-label="${p.titulo}">
+  <div class="modal-box">
+    <div class="modal-hero">
+      ${fotos[0] ? `<img src="${fotos[0]}" alt="${p.titulo}" class="modal-hero-img" onclick="openLB('${p.id}',0)" title="Clique para ampliar">` : '<div class="modal-hero-ph">📷</div>'}
+      <div class="modal-hero-grad"></div>
+      <button class="modal-close" onclick="closeDetail('${p.id}')" aria-label="Fechar">&#x2715;</button>
+      <div class="modal-compat">${cp}% Compat\u00edvel</div>
+    </div>
+    <div class="modal-body">
+      <div class="modal-top-row">
+        <div>
+          <h2 class="modal-title">${p.titulo}</h2>
+          ${p.bairro ? `<p class="modal-bairro">${p.bairro}</p>` : ''}
+        </div>
+        <div class="modal-price-col">
+          <p class="modal-price">R$\u00a0${Number(p.preco).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
+          ${p.condominio ? `<p class="modal-cond">+ R$ ${Number(p.condominio).toLocaleString('pt-BR', { minimumFractionDigits: 2 })} cond.</p>` : ''}
+        </div>
+      </div>
+      <div class="modal-stars" onclick="event.stopPropagation()">
+        ${[1,2,3,4,5].map(n => `<button class="star" data-id="${p.id}" data-val="${n}" aria-label="${n} estrelas">&#9733;</button>`).join('')}
+      </div>
+      <div class="specs-grid">${specsH}</div>
+      ${p.descricao ? `<div class="modal-desc-box"><p class="label-sm">Descri\u00e7\u00e3o</p><p class="modal-desc">${p.descricao}</p></div>` : ''}
+      ${p.link ? `<a href="${p.link}" target="_blank" rel="noopener noreferrer" class="ext-link">&#x2197; Ver an\u00fancio original</a>` : ''}
+      ${fotos.length > 1 ? `<div class="gallery-header"><p class="label-sm">Galeria \u2022 <span class="gallery-hint">${fotos.length} fotos \u2014 clique para ampliar</span></p>${galleryH}</div>` : ''}
+      <div class="modal-actions">
+        <button class="btn-like modal-like" data-id="${p.id}" onclick="toggleLike(event,'${p.id}',true)">\uD83D\uDC4D Gostei</button>
+        <button class="btn-dislike modal-dislike" data-id="${p.id}" onclick="toggleLike(event,'${p.id}',false)">\uD83D\uDC4E N\u00e3o gostei</button>
+        <button class="btn-close-modal" onclick="closeDetail('${p.id}')">Fechar</button>
+      </div>
+    </div>
+  </div>
+</div>`;
+  }).join('');
+
+  // ─── LIGHTBOXES ───────────────────────────────────────────────────────────
+  const lightboxes = sorted.filter(p => (p.fotos?.length || 0) > 0).map((p) => {
+    const fotos = p.fotos || [];
+    const thumbs = fotos.map((f, i) => `<div class="lb-thumb ${i === 0 ? 'lb-thumb-active' : ''}" data-i="${i}" onclick="lbGoTo('${p.id}',${i})"><img src="${f}" alt="" loading="lazy"></div>`).join('');
+    return `
+<div class="lb-ov" id="lb-${p.id}" onclick="if(event.target===this)closeLB('${p.id}')" role="dialog" aria-modal="true" aria-label="Galeria ${p.titulo}">
+  <button class="lb-close" onclick="closeLB('${p.id}')" aria-label="Fechar">&#x2715;</button>
+  ${fotos.length > 1 ? `<button class="lb-arrow lb-prev" onclick="lbNav('${p.id}',-1)" aria-label="Anterior">&#x2039;</button>` : ''}
+  <img class="lb-img" id="lb-img-${p.id}" src="${fotos[0]}" alt="">
+  ${fotos.length > 1 ? `<button class="lb-arrow lb-next" onclick="lbNav('${p.id}',1)" aria-label="Pr\u00f3xima">&#x203A;</button>` : ''}
+  <div class="lb-counter" id="lb-counter-${p.id}">1 de ${fotos.length}</div>
+  ${fotos.length > 1 ? `<div class="lb-thumbs" id="lb-thumbs-${p.id}">${thumbs}</div>` : ''}
+</div>`;
+  }).join('');
+
+  // ─── HTML ─────────────────────────────────────────────────────────────────
   const html = `<!DOCTYPE html>
 <html lang="pt-BR">
 <head>
@@ -188,148 +191,282 @@ ${lightboxH}`;
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,600;1,400&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 <style>
+/* ── RESET ── */
 *{box-sizing:border-box;margin:0;padding:0}
-body{background:#0a0a0a;color:#e4e4e7;font-family:'Inter',sans-serif;min-height:100vh}
+body{background:#0a0a0a;color:#e4e4e7;font-family:'Inter',sans-serif;min-height:100vh;-webkit-font-smoothing:antialiased}
+button{font-family:inherit}
 
-/* HERO */
+/* ── HERO ── */
 .hero{position:relative;background:#111;overflow:hidden;padding:60px 24px 50px}
 ${topImg ? `.hero::before{content:'';position:absolute;inset:0;background:url('${topImg}') center/cover no-repeat;opacity:.15;z-index:0}` : ''}
 .hero::after{content:'';position:absolute;inset:0;background:linear-gradient(90deg,rgba(10,10,10,.92) 0%,rgba(10,10,10,.68) 45%,rgba(10,10,10,.3) 100%);z-index:0}
 .hero-inner{position:relative;z-index:1;max-width:1180px;margin:0 auto;display:flex;justify-content:space-between;align-items:flex-end;flex-wrap:wrap;gap:24px}
 .hero-left{max-width:720px}
-.hero-greeting{font-size:13px;color:#a1a1aa;letter-spacing:.08em;text-transform:uppercase;margin-bottom:8px}
-.hero-name{font-family:'Inter',sans-serif;font-size:clamp(28px,5vw,48px);font-weight:700;color:#fff;line-height:1.05}
+.hero-label{font-size:13px;color:#a1a1aa;letter-spacing:.08em;text-transform:uppercase;margin-bottom:8px}
+.hero-name{font-size:clamp(28px,5vw,48px);font-weight:700;color:#fff;line-height:1.05}
 .hero-meta{display:flex;flex-wrap:wrap;gap:18px;margin-top:14px;font-size:14px;font-weight:600;color:#f4f4f5}
 .hero-meta .compat{color:#4ade80}
-.hero-actions{display:flex;gap:12px;flex-wrap:wrap;margin-top:26px}
-.hero-btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;padding:13px 18px;border-radius:14px;text-decoration:none;font-size:14px;font-weight:700;transition:.2s;cursor:pointer;border:none}
-.hero-btn-primary{background:#fff;color:#111}
-.hero-btn-primary:hover{background:#e4e4e7}
-.hero-btn-secondary{background:rgba(255,255,255,.12);border:1px solid rgba(255,255,255,.12);color:#fff}
-.hero-btn-secondary:hover{background:rgba(255,255,255,.18)}
-.hero-client-line{margin-top:12px;font-size:14px;color:#e4e4e7;font-weight:600}
+.hero-btns{display:flex;gap:12px;flex-wrap:wrap;margin-top:26px}
+.hero-btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;padding:13px 18px;border-radius:14px;font-size:14px;font-weight:700;transition:.2s;cursor:pointer;border:none;text-decoration:none}
+.hero-btn-p{background:#fff;color:#111}
+.hero-btn-p:hover{background:#e4e4e7}
+.hero-btn-s{background:rgba(255,255,255,.12);border:1px solid rgba(255,255,255,.12);color:#fff}
+.hero-btn-s:hover{background:rgba(255,255,255,.18)}
+.hero-client{margin-top:12px;font-size:14px;color:#e4e4e7;font-weight:600}
 .hero-right{min-width:260px;max-width:340px;text-align:right;display:flex;flex-direction:column;align-items:flex-end;gap:4px}
 .hero-broker-label{font-size:11px;color:#71717a;letter-spacing:.06em;text-transform:uppercase;margin-bottom:8px}
-.hero-broker-name{font-family:'Cormorant Garamond',serif;font-size:clamp(28px,4vw,44px);font-weight:600;color:#e50914;font-style:italic;line-height:1.05}
+.hero-broker-name{font-family:'Cormorant Garamond',serif;font-size:clamp(28px,4vw,44px);font-weight:600;color:${RED};font-style:italic;line-height:1.05}
 .hero-broker-sub{font-size:12px;color:#a1a1aa;margin-top:2px}
 .hero-broker-phone{font-size:14px;color:#e4e4e7;margin-top:4px;font-weight:600}
 .hero-broker-email{font-size:12px;color:#a1a1aa}
 .hero-compat{margin-top:16px;background:rgba(229,9,20,.12);border:1px solid rgba(229,9,20,.3);border-radius:16px;padding:14px 18px;display:inline-block}
-.hero-compat-num{font-size:38px;font-weight:700;color:#e50914;line-height:1}
+.hero-compat-num{font-size:38px;font-weight:700;color:${RED};line-height:1}
 .hero-compat-label{font-size:10px;color:#a1a1aa;text-transform:uppercase;letter-spacing:.06em;margin-top:2px}
 .hero-feat-title{font-size:11px;color:#71717a;margin-top:12px}
 .hero-feat-name{font-size:15px;font-weight:600;color:#fff;margin-top:3px;max-width:220px}
 
-/* GRID */
+/* ── SECTION ── */
 .section{max-width:1180px;margin:0 auto;padding:40px 20px}
-.section-title{font-size:13px;color:#71717a;text-transform:uppercase;letter-spacing:.08em;margin-bottom:20px}
+.section-label{font-size:13px;color:#71717a;text-transform:uppercase;letter-spacing:.08em;margin-bottom:20px}
 .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(280px,100%),1fr));gap:20px}
 
-/* CARD */
-.card{background:#18181b;border:1px solid #27272a;border-radius:16px;overflow:hidden;transition:transform .2s,box-shadow .2s}
-.card:hover{transform:translateY(-3px);box-shadow:0 12px 32px rgba(0,0,0,.4)}
-.card-img{width:100%;height:190px;object-fit:cover}
-.card-img-placeholder{width:100%;height:190px;background:#27272a}
-.card-body{padding:16px}
-.card-top{display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;gap:10px}
-.compat-badge{background:rgba(229,9,20,.15);color:#ff4d57;border:1px solid rgba(229,9,20,.3);border-radius:20px;padding:3px 10px;font-size:11px;font-weight:700}
-.price-sm{font-size:13px;font-weight:700;color:#fff}
-.card-title{font-size:15px;font-weight:700;color:#fff;margin-bottom:3px;line-height:1.3}
-.card-bairro{font-size:12px;color:#a1a1aa;margin-bottom:10px}
-.card-specs{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:10px}
-.card-specs span{background:#27272a;border-radius:6px;padding:3px 8px;font-size:11px;color:#d4d4d8}
-.stars-row{margin:8px 0;user-select:none}
-.card-desc{font-size:12px;color:#a1a1aa;margin-top:8px;line-height:1.5;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden}
-.card-actions{display:flex;gap:8px;margin-top:12px}
-.btn-detail{flex:1;padding:10px;border-radius:10px;border:1px solid #3f3f46;background:transparent;color:#e4e4e7;font-size:12px;font-weight:700;cursor:pointer;transition:all .2s}
-.btn-detail:hover{background:#27272a;color:#fff;border-color:#52525b}
-.btn-pdf{padding:10px 14px;border-radius:10px;border:1px solid rgba(229,9,20,.4);background:rgba(229,9,20,.1);color:#ff4d57;font-size:12px;font-weight:700;cursor:pointer;transition:all .2s;white-space:nowrap}
-.btn-pdf:hover{background:rgba(229,9,20,.2);border-color:#e50914}
-
-/* MODAL */
-.modal-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.85);z-index:999;overflow-y:auto;padding:20px}
-.modal-overlay.open{display:flex;align-items:flex-start;justify-content:center}
-.modal-box{background:#18181b;border:1px solid #27272a;border-radius:20px;width:100%;max-width:700px;padding:28px;position:relative;margin:auto}
-.modal-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:12px}
-.modal-close{background:#27272a;border:none;color:#a1a1aa;width:32px;height:32px;border-radius:50%;cursor:pointer;font-size:16px;display:flex;align-items:center;justify-content:center}
-.modal-close:hover{background:#3f3f46;color:#fff}
-.modal-pdf-btn{display:inline-flex;align-items:center;gap:6px;padding:8px 14px;border-radius:10px;border:1px solid rgba(229,9,20,.4);background:rgba(229,9,20,.1);color:#ff4d57;font-size:12px;font-weight:700;cursor:pointer;transition:all .2s}
-.modal-pdf-btn:hover{background:rgba(229,9,20,.2);border-color:#e50914}
-.modal-compat{display:inline-block;background:rgba(229,9,20,.15);color:#ff4d57;border:1px solid rgba(229,9,20,.3);border-radius:20px;padding:4px 12px;font-size:12px;font-weight:700;margin-bottom:10px}
-.modal-title{font-size:22px;font-weight:700;color:#fff;margin-bottom:6px}
-.modal-price{font-size:26px;font-weight:700;color:#e50914;margin-bottom:16px}
-.foto-hint{font-size:11px;color:#71717a;margin-bottom:8px;letter-spacing:.04em}
-.detail-photos{display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:8px;margin-bottom:16px}
-.foto-thumb{width:100%;height:130px;object-fit:cover;border-radius:10px;cursor:pointer;transition:transform .2s,opacity .2s}
-.foto-thumb:hover{transform:scale(1.04);opacity:.85}
-.dspecs-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:16px}
-.dspec strong{display:block;font-size:10px;color:#71717a;text-transform:uppercase;margin-bottom:2px}
-.dspec span{font-size:13px;color:#e4e4e7}
-.modal-desc{font-size:13px;color:#a1a1aa;line-height:1.6;border-left:3px solid #e50914;padding-left:12px}
-
-/* LIGHTBOX */
-.lb-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.96);z-index:2000;align-items:center;justify-content:center}
-.lb-overlay.lb-open{display:flex}
-.lb-img{max-width:92vw;max-height:82vh;object-fit:contain;border-radius:8px;user-select:none}
-.lb-close{position:fixed;top:18px;right:22px;background:rgba(255,255,255,.15);border:none;color:#fff;font-size:22px;cursor:pointer;border-radius:50%;width:44px;height:44px;display:flex;align-items:center;justify-content:center;z-index:2001;transition:.2s}
-.lb-close:hover{background:rgba(255,255,255,.28)}
-.lb-arrow{position:fixed;top:50%;transform:translateY(-50%);background:rgba(255,255,255,.15);border:none;color:#fff;font-size:48px;cursor:pointer;border-radius:50%;width:54px;height:54px;display:flex;align-items:center;justify-content:center;z-index:2001;transition:.2s;line-height:1;padding-bottom:2px}
-.lb-arrow:hover{background:rgba(255,255,255,.28)}
-.lb-prev{left:14px}
-.lb-next{right:14px}
-.lb-counter{position:fixed;bottom:22px;left:50%;transform:translateX(-50%);color:rgba(255,255,255,.65);font-size:13px;z-index:2001;background:rgba(0,0,0,.55);padding:4px 16px;border-radius:20px}
-
-/* PRINT */
-@media print{
-  body{background:#fff;color:#111}
-  .hero,.section-title,.hero-actions,.stars-row,.card-actions,.modal-overlay,.lb-overlay,footer{display:none!important}
-  .grid{display:block}
-  .card{break-inside:avoid;border:1px solid #ddd;background:#fff;margin-bottom:20px;page-break-inside:avoid}
-  .card-img{max-height:220px}
-  .compat-badge{background:#fef2f2;color:#b91c1c;border-color:#fca5a5}
-  .card-title,.price-sm{color:#111}
-  .card-bairro,.card-desc{color:#555}
-  .card-specs span{background:#f3f4f6;color:#374151}
-  .print-only{display:block!important}
+/* ── CARD (= CARD_TOKENS) ── */
+.card{
+  background:${BG_CARD};
+  backdrop-filter:blur(20px);
+  border:1px solid ${BORDER};
+  border-radius:${RADIUS};
+  padding:16px;
+  cursor:pointer;
+  transition:${TRANSITION};
+  outline:none;
 }
-.print-only{display:none}
+.card:hover,.card:focus-visible{
+  transform:translateY(-5px);
+  box-shadow:0 20px 25px -5px rgba(16,185,129,.2);
+  border-color:rgba(16,185,129,.35);
+  background:rgba(255,255,255,0.08);
+}
+.card:focus-visible{outline:2px solid ${RED};outline-offset:2px}
+.card-img-wrap{
+  position:relative;
+  width:100%;
+  aspect-ratio:16/9;
+  border-radius:${RADIUS_SM};
+  overflow:hidden;
+  background:#1f2937;
+  margin-bottom:16px;
+}
+.card-img{width:100%;height:100%;object-fit:cover;display:block}
+.card-img-ph{width:100%;height:100%;display:flex;align-items:center;justify-content:center;font-size:2.5rem;color:#52525b}
+.compat-badge{
+  position:absolute;top:8px;right:8px;
+  background:rgba(229,9,20,.9);color:#fff;
+  font-size:11px;font-weight:700;
+  padding:3px 10px;border-radius:${RADIUS_XS};
+}
+.fav-btn{
+  position:absolute;top:8px;left:8px;
+  width:32px;height:32px;
+  display:flex;align-items:center;justify-content:center;
+  border-radius:50%;border:none;cursor:pointer;
+  background:rgba(0,0,0,.55);color:#fff;
+  font-size:14px;transition:.2s;
+}
+.fav-btn.active{background:${RED}}
+.card-body{padding:0}
+.card-title{font-size:15px;font-weight:600;color:#fff;margin-bottom:4px;line-height:1.3;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.card-price{font-size:20px;font-weight:700;color:${RED_TEXT};margin-bottom:4px}
+.card-meta{font-size:12px;color:#a1a1aa;margin-bottom:12px}
+.stars-row{display:flex;gap:2px;margin-bottom:12px;user-select:none}
+.star{background:none;border:none;cursor:pointer;font-size:20px;color:#4b5563;padding:0;line-height:1;transition:color .15s}
+.star.active{color:#fbbf24}
+.card-actions{display:flex;gap:8px;padding-top:12px;border-top:1px solid rgba(255,255,255,.1)}
+.btn-like,.btn-dislike{
+  flex:1;padding:10px 6px;
+  border-radius:${RADIUS_SM};
+  border:1px solid rgba(255,255,255,.12);
+  background:rgba(255,255,255,.06);
+  color:#e4e4e7;font-size:12px;font-weight:600;
+  cursor:pointer;transition:.2s;
+}
+.btn-like:hover,.btn-like.active{background:rgba(22,163,74,.25);border-color:#16a34a;color:#4ade80}
+.btn-dislike:hover,.btn-dislike.active{background:rgba(239,68,68,.15);border-color:#ef4444;color:#fca5a5}
 
-/* FOOTER */
+/* ── MODAL ── */
+.modal-ov{
+  display:none;position:fixed;inset:0;
+  background:rgba(0,0,0,.82);
+  backdrop-filter:blur(4px);
+  z-index:999;overflow-y:auto;padding:20px;
+  align-items:flex-start;justify-content:center;
+}
+.modal-ov.open{display:flex}
+.modal-box{
+  background:#181818;
+  width:100%;max-width:896px;
+  border-radius:${RADIUS};
+  max-height:calc(100dvh - 40px);
+  overflow:auto;
+  margin:auto;
+}
+.modal-hero{position:relative;width:100%;aspect-ratio:16/6;background:#1f2937;border-radius:${RADIUS} ${RADIUS} 0 0;overflow:hidden}
+.modal-hero-img{width:100%;height:100%;object-fit:cover;cursor:zoom-in;display:block}
+.modal-hero-ph{width:100%;height:100%;display:flex;align-items:center;justify-content:center;font-size:4rem;color:#52525b}
+.modal-hero-grad{position:absolute;inset:0;background:linear-gradient(to top,#181818,transparent 55%)}
+.modal-close{
+  position:absolute;top:16px;right:16px;
+  background:rgba(0,0,0,.6);border:none;color:#fff;
+  width:40px;height:40px;border-radius:50%;
+  display:flex;align-items:center;justify-content:center;
+  cursor:pointer;font-size:16px;transition:.2s;z-index:2;
+}
+.modal-close:hover{background:rgba(0,0,0,.85)}
+.modal-compat{
+  position:absolute;top:16px;left:16px;
+  background:rgba(229,9,20,.9);color:#fff;
+  font-size:13px;font-weight:700;
+  padding:5px 14px;border-radius:${RADIUS_XS};
+  z-index:2;
+}
+.modal-body{padding:24px 28px 28px}
+.modal-top-row{display:flex;flex-wrap:wrap;justify-content:space-between;align-items:flex-start;gap:16px;margin-bottom:16px}
+.modal-title{font-size:clamp(20px,4vw,28px);font-weight:700;color:#fff;margin-bottom:4px}
+.modal-bairro{color:#a1a1aa;font-size:14px}
+.modal-price-col{text-align:right}
+.modal-price{font-size:clamp(22px,4vw,30px);font-weight:700;color:${RED_TEXT}}
+.modal-cond{color:#a1a1aa;font-size:13px;margin-top:2px}
+.modal-stars{display:flex;gap:2px;margin-bottom:24px;user-select:none}
+.modal-stars .star{font-size:28px}
+.specs-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:10px;margin-bottom:20px}
+@media(min-width:640px){.specs-grid{grid-template-columns:repeat(4,1fr)}}
+.spec{background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.1);border-radius:${RADIUS_XS};padding:10px 12px}
+.spec strong{display:block;font-size:10px;color:#71717a;text-transform:uppercase;letter-spacing:.06em;margin-bottom:3px}
+.spec span{font-size:13px;font-weight:600;color:#e4e4e7}
+.modal-desc-box{background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.1);border-radius:${RADIUS_XS};padding:14px 16px;margin-bottom:16px}
+.label-sm{font-size:11px;color:#71717a;text-transform:uppercase;letter-spacing:.06em;margin-bottom:6px}
+.modal-desc{font-size:13px;color:#d4d4d8;line-height:1.65;white-space:pre-wrap}
+.ext-link{display:inline-flex;align-items:center;gap:6px;color:${RED_TEXT};font-size:13px;text-decoration:none;margin-bottom:20px;transition:color .2s}
+.ext-link:hover{color:#fca5a5}
+.gallery-header{margin-bottom:20px}
+.gallery-hint{color:#52525b;font-weight:400}
+.gallery-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:8px}
+@media(min-width:640px){.gallery-grid{grid-template-columns:repeat(4,1fr)}}
+.gthumb{aspect-ratio:16/9;border-radius:${RADIUS_XS};overflow:hidden;cursor:zoom-in;transition:.2s}
+.gthumb:hover{opacity:.8;transform:scale(1.03)}
+.gthumb img{width:100%;height:100%;object-fit:cover}
+.modal-actions{display:flex;gap:10px;padding-top:20px;border-top:1px solid rgba(255,255,255,.1);flex-wrap:wrap}
+.modal-like,.modal-dislike,.btn-close-modal{
+  flex:1;min-width:100px;padding:12px;
+  border-radius:${RADIUS_SM};
+  border:1px solid rgba(255,255,255,.12);
+  background:rgba(255,255,255,.06);
+  color:#e4e4e7;font-size:13px;font-weight:600;
+  cursor:pointer;transition:.2s;
+}
+.modal-like:hover,.modal-like.active{background:rgba(22,163,74,.25);border-color:#16a34a;color:#4ade80}
+.modal-dislike:hover,.modal-dislike.active{background:rgba(239,68,68,.15);border-color:#ef4444;color:#fca5a5}
+.btn-close-modal{background:rgba(255,255,255,.08);border-color:rgba(255,255,255,.15)}
+.btn-close-modal:hover{background:rgba(255,255,255,.15)}
+
+/* ── LIGHTBOX ── */
+.lb-ov{
+  display:none;position:fixed;inset:0;
+  background:rgba(0,0,0,.97);
+  z-index:2000;
+  align-items:center;justify-content:center;
+  flex-direction:column;
+}
+.lb-ov.lb-open{display:flex}
+.lb-img{max-width:92vw;max-height:76vh;object-fit:contain;border-radius:10px;user-select:none;display:block}
+.lb-close{
+  position:fixed;top:16px;right:16px;
+  background:rgba(255,255,255,.1);border:none;color:#fff;
+  width:44px;height:44px;border-radius:50%;
+  display:flex;align-items:center;justify-content:center;
+  cursor:pointer;font-size:20px;transition:.2s;z-index:2001;
+}
+.lb-close:hover{background:rgba(255,255,255,.25)}
+.lb-arrow{
+  position:fixed;top:50%;transform:translateY(-50%);
+  background:rgba(255,255,255,.1);border:none;color:#fff;
+  width:52px;height:52px;border-radius:50%;
+  display:flex;align-items:center;justify-content:center;
+  cursor:pointer;font-size:44px;line-height:1;transition:.2s;z-index:2001;
+  padding-bottom:3px;
+}
+.lb-arrow:hover{background:rgba(255,255,255,.25)}
+.lb-prev{left:12px}
+.lb-next{right:12px}
+.lb-counter{
+  position:fixed;bottom:56px;left:50%;transform:translateX(-50%);
+  color:rgba(255,255,255,.7);font-size:13px;
+  background:rgba(0,0,0,.6);backdrop-filter:blur(8px);
+  padding:5px 18px;border-radius:20px;z-index:2001;
+}
+.lb-thumbs{
+  position:fixed;bottom:12px;left:50%;transform:translateX(-50%);
+  display:flex;gap:8px;overflow-x:auto;max-width:90vw;padding:4px;
+  z-index:2001;
+}
+.lb-thumb{
+  width:56px;height:40px;border-radius:8px;overflow:hidden;
+  cursor:pointer;flex-shrink:0;
+  opacity:.4;border:2px solid transparent;
+  transition:opacity .2s,border-color .2s;
+}
+.lb-thumb.lb-thumb-active{opacity:1;border-color:${RED}}
+.lb-thumb img{width:100%;height:100%;object-fit:cover}
+
+/* ── FOOTER ── */
 .footer{border-top:1px solid #1c1c1e;padding:40px 24px;text-align:center}
-.footer-broker{font-family:'Cormorant Garamond',serif;font-size:30px;font-weight:600;color:#e50914;font-style:italic;margin-bottom:6px}
+.footer-broker{font-family:'Cormorant Garamond',serif;font-size:30px;font-weight:600;color:${RED};font-style:italic;margin-bottom:6px}
 .footer-contact{font-size:14px;color:#e4e4e7;margin-top:4px}
 .footer-email{font-size:12px;color:#a1a1aa;margin-top:4px}
 .footer-empresa{font-size:12px;color:#71717a;margin-top:3px;letter-spacing:.04em;text-transform:uppercase}
 
+/* ── PRINT ── */
+@media print{
+  .hero,.section-label,.card-actions,.modal-ov,.lb-ov,.footer{display:none!important}
+  .grid{display:block}
+  .card{break-inside:avoid;background:#fff;border:1px solid #ddd;margin-bottom:20px;page-break-inside:avoid}
+  .card-title,.card-price{color:#111}
+  .card-meta{color:#555}
+  .compat-badge{background:#fef2f2;color:#b91c1c}
+}
+
+/* ── RESPONSIVE ── */
 @media(max-width:700px){
   .hero-inner{flex-direction:column;align-items:flex-start}
   .hero-right{text-align:left;align-items:flex-start;min-width:unset;max-width:unset}
-  .hero-feat-name{max-width:none}
-  .dspecs-grid{grid-template-columns:repeat(2,1fr)}
-  .detail-photos{grid-template-columns:repeat(auto-fill,minmax(120px,1fr))}
-  .lb-arrow{width:42px;height:42px;font-size:36px}
-  .lb-prev{left:6px}
-  .lb-next{right:6px}
+  .modal-body{padding:16px 16px 20px}
+  .modal-actions{flex-direction:column}
+  .modal-like,.modal-dislike,.btn-close-modal{flex:unset;width:100%}
+  .lb-arrow{width:40px;height:40px;font-size:34px}
+  .lb-prev{left:4px}
+  .lb-next{right:4px}
+  .gallery-grid{grid-template-columns:repeat(3,1fr)}
 }
 </style>
 </head>
 <body>
 
+<!-- HERO -->
 <div class="hero">
   <div class="hero-inner">
     <div class="hero-left">
-      <p class="hero-greeting">Sele\u00e7\u00e3o de im\u00f3veis preparada para voc\u00ea</p>
+      <p class="hero-label">Sele\u00e7\u00e3o de im\u00f3veis preparada para voc\u00ea</p>
       <h1 class="hero-name">${topProp.titulo}</h1>
       <div class="hero-meta">
         <span class="compat">${cpTop}% Compat\u00edvel</span>
         ${topProp.quartos != null ? `<span>${topProp.quartos} Quartos</span>` : ''}
         ${topProp.bairro ? `<span>${topProp.bairro}</span>` : ''}
       </div>
-      <div class="hero-actions">
-        <button class="hero-btn hero-btn-primary" onclick="openDetail('${topProp.id}')">&#x25B6; Ver Detalhes</button>
-        <button class="hero-btn hero-btn-secondary" onclick="window.print()">&#x1F4C4; Imprimir / PDF</button>
+      <div class="hero-btns">
+        <button class="hero-btn hero-btn-p" onclick="openDetail('${topProp.id}')">&#x25B6; Ver Detalhes</button>
+        <button class="hero-btn hero-btn-s" onclick="window.print()">&#x1F4C4; Imprimir</button>
       </div>
-      <div class="hero-client-line">Selecionados para ${client.nome}</div>
+      <div class="hero-client">Selecionados para ${client.nome}</div>
     </div>
     <div class="hero-right">
       <div class="hero-broker-label">Corretor respons\u00e1vel</div>
@@ -347,15 +484,17 @@ ${topImg ? `.hero::before{content:'';position:absolute;inset:0;background:url('$
   </div>
 </div>
 
+<!-- GRID -->
 <div class="section">
-  <p class="section-title">Im\u00f3veis selecionados para voc\u00ea</p>
-  <div class="grid" id="cards-grid">
-    ${cards}
-  </div>
+  <p class="section-label">Im\u00f3veis selecionados para voc\u00ea</p>
+  <div class="grid">${cards}</div>
 </div>
 
-${detailModals}
+<!-- MODAIS + LIGHTBOXES -->
+${modals}
+${lightboxes}
 
+<!-- FOOTER -->
 <footer class="footer">
   <div class="footer-broker">${brokerNome}</div>
   ${brokerTelefone ? `<div class="footer-contact">${brokerTelefone}</div>` : ''}
@@ -364,13 +503,83 @@ ${detailModals}
 </footer>
 
 <script>
+// ── STORE ──
 const RATINGS_KEY = '${ratingsKey}';
-const PRINT_CARDS = ${JSON.stringify(printCardsData)};
+const FB_KEY      = '${fbKey}';
+const PRINT_DATA  = ${JSON.stringify(printCardsData)};
 const BROKER_NOME = ${JSON.stringify(brokerNome)};
-const BROKER_EMPRESA = ${JSON.stringify(brokerEmpresa)};
-const BROKER_TELEFONE = ${JSON.stringify(brokerTelefone)};
+const BROKER_EMP  = ${JSON.stringify(brokerEmpresa)};
+const BROKER_TEL  = ${JSON.stringify(brokerTelefone)};
 const BROKER_EMAIL = ${JSON.stringify(brokerEmail)};
-const CLIENT_NOME = ${JSON.stringify(client.nome)};
+const CLIENT_NOME  = ${JSON.stringify(client.nome)};
+
+const LB_STATE = {}; // { [propId]: { srcs, cur } }
+
+function store(key, val) { try { localStorage.setItem(key, JSON.stringify(val)); } catch {} }
+function load(key, fallback) { try { return JSON.parse(localStorage.getItem(key)) ?? fallback; } catch { return fallback; } }
+
+// ── RATINGS ──
+function applyRatings() {
+  const saved = load(RATINGS_KEY, {});
+  document.querySelectorAll('.star').forEach(s => {
+    const id  = s.dataset.id;
+    const val = parseInt(s.dataset.val);
+    const cur = saved[id] || 0;
+    s.classList.toggle('active', cur >= val);
+    s.style.color = cur >= val ? '#fbbf24' : '#4b5563';
+  });
+}
+document.querySelectorAll('.star').forEach(s => {
+  s.addEventListener('click', function(e) {
+    e.stopPropagation();
+    const id = this.dataset.id, val = parseInt(this.dataset.val);
+    const ratings = load(RATINGS_KEY, {});
+    ratings[id] = val;
+    store(RATINGS_KEY, ratings);
+    applyRatings();
+  });
+});
+applyRatings();
+
+// ── FEEDBACK ──
+function toggleLike(e, id, liked) {
+  e.stopPropagation();
+  const fbs = load(FB_KEY, {});
+  const cur = fbs[id];
+  fbs[id] = (cur && cur.liked === liked) ? { liked: null } : { liked };
+  store(FB_KEY, fbs);
+  applyFeedback();
+}
+function applyFeedback() {
+  const fbs = load(FB_KEY, {});
+  document.querySelectorAll('.btn-like,.modal-like').forEach(btn => {
+    const id = btn.dataset.id;
+    btn.classList.toggle('active', fbs[id]?.liked === true);
+  });
+  document.querySelectorAll('.btn-dislike,.modal-dislike').forEach(btn => {
+    const id = btn.dataset.id;
+    btn.classList.toggle('active', fbs[id]?.liked === false);
+  });
+}
+applyFeedback();
+
+// ── FAVORITOS ──
+function toggleFav(e, id) {
+  e.stopPropagation();
+  const favs = load('favs', {});
+  favs[id] = !favs[id];
+  store('favs', favs);
+  applyFavs();
+}
+function applyFavs() {
+  const favs = load('favs', {});
+  document.querySelectorAll('.fav-btn').forEach(btn => {
+    const id = btn.dataset.id;
+    btn.classList.toggle('active', !!favs[id]);
+    btn.title = favs[id] ? 'Remover favorito' : 'Favoritar';
+  });
+}
+applyFavs();
 
 // ── MODAL ──
 function openDetail(id) {
@@ -383,181 +592,139 @@ function closeDetail(id) {
 }
 
 // ── LIGHTBOX ──
-const lbState = {};
-
-function openLightbox(propId, idx) {
+function openLB(propId, idx) {
   const el = document.getElementById('lb-' + propId);
   if (!el) return;
-  const thumbs = document.querySelectorAll('#modal-' + propId + ' .foto-thumb');
-  const srcs = Array.from(thumbs).map(function(t) { return t.getAttribute('src'); });
-  lbState[propId] = { srcs: srcs, cur: idx };
+  const thumbs = Array.from(document.querySelectorAll('#lb-thumbs-' + propId + ' .lb-thumb'));
+  const srcs   = thumbs.length
+    ? thumbs.map(t => t.querySelector('img').src)
+    : [document.querySelector('#modal-' + propId + ' .modal-hero-img')?.src].filter(Boolean);
+  LB_STATE[propId] = { srcs, cur: idx };
   lbRender(propId);
   el.classList.add('lb-open');
   document.body.style.overflow = 'hidden';
 }
-
-function closeLightbox(propId) {
+function closeLB(propId) {
   document.getElementById('lb-' + propId)?.classList.remove('lb-open');
-  document.body.style.overflow = '';
+  // N\u00e3o restaurar overflow aqui se modal ainda estiver aberto
+  const anyModal = document.querySelector('.modal-ov.open');
+  if (!anyModal) document.body.style.overflow = '';
 }
-
-function lbRender(propId) {
-  var state = lbState[propId];
-  if (!state) return;
-  var img = document.getElementById('lb-img-' + propId);
-  var counter = document.getElementById('lb-counter-' + propId);
-  var prev = document.getElementById('lb-prev-' + propId);
-  var next = document.getElementById('lb-next-' + propId);
-  if (img) img.src = state.srcs[state.cur];
-  if (counter) counter.textContent = (state.cur + 1) + ' / ' + state.srcs.length;
-  if (prev) prev.style.display = state.srcs.length > 1 ? 'flex' : 'none';
-  if (next) next.style.display = state.srcs.length > 1 ? 'flex' : 'none';
-}
-
 function lbNav(propId, dir) {
-  var state = lbState[propId];
-  if (!state) return;
-  state.cur = (state.cur + dir + state.srcs.length) % state.srcs.length;
+  const s = LB_STATE[propId];
+  if (!s) return;
+  s.cur = (s.cur + dir + s.srcs.length) % s.srcs.length;
   lbRender(propId);
 }
+function lbGoTo(propId, idx) {
+  const s = LB_STATE[propId];
+  if (!s) return;
+  s.cur = idx;
+  lbRender(propId);
+}
+function lbRender(propId) {
+  const s = LB_STATE[propId];
+  if (!s) return;
+  const img     = document.getElementById('lb-img-' + propId);
+  const counter = document.getElementById('lb-counter-' + propId);
+  const thumbs  = document.querySelectorAll('#lb-thumbs-' + propId + ' .lb-thumb');
+  if (img)     img.src = s.srcs[s.cur];
+  if (counter) counter.textContent = (s.cur + 1) + ' de ' + s.srcs.length;
+  thumbs.forEach((t, i) => t.classList.toggle('lb-thumb-active', i === s.cur));
+}
 
-// ESC fecha lightbox ou modal
+// ── TECLADO ──
 document.addEventListener('keydown', function(e) {
+  const lbOpen = document.querySelector('.lb-ov.lb-open');
+  if (lbOpen) {
+    const pid = lbOpen.id.replace('lb-', '');
+    if (e.key === 'ArrowLeft')  { lbNav(pid, -1); return; }
+    if (e.key === 'ArrowRight') { lbNav(pid,  1); return; }
+    if (e.key === 'Escape')     { closeLB(pid); return; }
+  }
   if (e.key === 'Escape') {
-    var lbOpen = document.querySelectorAll('.lb-overlay.lb-open');
-    if (lbOpen.length) {
-      lbOpen.forEach(function(el) { el.classList.remove('lb-open'); });
-      document.body.style.overflow = '';
-    } else {
-      document.querySelectorAll('.modal-overlay.open').forEach(function(m) {
-        m.classList.remove('open');
-        document.body.style.overflow = '';
-      });
-    }
+    document.querySelectorAll('.modal-ov.open').forEach(m => {
+      m.classList.remove('open');
+    });
+    document.body.style.overflow = '';
   }
 });
 
-// Swipe mobile no lightbox
-document.querySelectorAll('.lb-overlay').forEach(function(el) {
-  var startX = 0;
-  var propId = el.id.replace('lb-', '');
-  el.addEventListener('touchstart', function(e) { startX = e.touches[0].clientX; }, { passive: true });
-  el.addEventListener('touchend', function(e) {
-    var dx = e.changedTouches[0].clientX - startX;
-    if (Math.abs(dx) > 50) lbNav(propId, dx < 0 ? 1 : -1);
+// ── SWIPE ──
+document.querySelectorAll('.lb-ov').forEach(el => {
+  let sx = 0;
+  const pid = el.id.replace('lb-', '');
+  el.addEventListener('touchstart', e => { sx = e.touches[0].clientX; }, { passive: true });
+  el.addEventListener('touchend',   e => {
+    const dx = e.changedTouches[0].clientX - sx;
+    if (Math.abs(dx) > 50) lbNav(pid, dx < 0 ? 1 : -1);
   }, { passive: true });
 });
 
-// ── RATINGS ──
-function saveRatings(ratings) {
-  try { localStorage.setItem(RATINGS_KEY, JSON.stringify(ratings)); } catch {}
-}
-function loadRatings() {
-  try { return JSON.parse(localStorage.getItem(RATINGS_KEY) || '{}'); } catch { return {}; }
-}
-function applyRatings() {
-  var saved = loadRatings();
-  document.querySelectorAll('.star').forEach(function(s) {
-    var id = s.dataset.id;
-    var val = parseInt(s.dataset.val);
-    var cur = saved[id] || 0;
-    s.style.color = cur >= val ? '#facc15' : '#3f3f46';
-  });
-}
-document.querySelectorAll('.star').forEach(function(star) {
-  star.addEventListener('click', function() {
-    var id = this.dataset.id;
-    var val = parseInt(this.dataset.val);
-    var ratings = loadRatings();
-    ratings[id] = val;
-    saveRatings(ratings);
-    applyRatings();
-  });
-});
-applyRatings();
-
+// ── PDF INDIVIDUAL ──
 function printCard(id) {
-  var card = PRINT_CARDS.find(function(c) { return c.id === id; });
+  const card = PRINT_DATA.find(c => c.id === id);
   if (!card) return;
+  const now = new Date().toLocaleDateString('pt-BR');
+  const specsH = card.specs.map(s => '<div class="ps"><strong>' + s[0] + '</strong><span>' + s[1] + '</span></div>').join('');
+  const fp = card.imgSrc ? '<img src="' + card.imgSrc + '" class="fp" alt="">' : '';
+  const fx = card.fotos.length > 1 ? '<div class="fg">' + card.fotos.slice(1).map(f => '<img src="' + f + '" alt="">').join('') + '</div>' : '';
 
-  var now = new Date().toLocaleDateString('pt-BR');
-
-  var specsHtml = card.specs
-    .map(function(s) {
-      return '<div class="ps"><strong>' + s[0] + '</strong><span>' + s[1] + '</span></div>';
-    })
-    .join('');
-
-  var fotosPrincipal = card.imgSrc
-    ? '<img src="' + card.imgSrc + '" class="foto-principal" alt="">'
-    : '';
-
-  var fotosExtras = card.fotos.length > 1
-    ? '<div class="fotos-grid">' + card.fotos.slice(1).map(function(f) {
-        return '<img src="' + f + '" alt="">';
-      }).join('') + '</div>'
-    : '';
-
-  var htmlPdf = '<!DOCTYPE html><html lang="pt-BR"><head><meta charset="UTF-8"><title>Apresenta\u00e7\u00e3o - ' + card.titulo + '</title>' +
+  const doc = '<!DOCTYPE html><html lang="pt-BR"><head><meta charset="UTF-8"><title>' + card.titulo + '</title>' +
     '<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">' +
-    '<style>*{box-sizing:border-box;margin:0;padding:0}body{font-family:Inter,sans-serif;background:#fff;color:#111;padding:0}@page{size:A4;margin:0}' +
-    '.pagina{width:210mm;min-height:297mm;padding:12mm 14mm;display:flex;flex-direction:column;page-break-after:always}.pagina:last-child{page-break-after:auto}' +
-    '.cabecalho{background:#e50914;color:#fff;border-radius:12px;padding:18px 22px;display:flex;justify-content:space-between;align-items:center;margin-bottom:16px}' +
-    '.cab-titulo{font-size:11px;font-weight:600;letter-spacing:.12em;text-transform:uppercase;opacity:.85;margin-bottom:4px}.cab-bairro{font-size:26px;font-weight:700;line-height:1.1}' +
-    '.cab-para-label{font-size:10px;opacity:.75;text-align:right;margin-bottom:3px}.cab-para-nome{font-size:16px;font-weight:700;text-align:right}' +
-    '.corretor-box{background:#f8f8f8;border-radius:10px;padding:14px 18px;display:flex;justify-content:space-between;align-items:center;margin-bottom:16px}' +
-    '.corretor-label{font-size:9px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:#888;margin-bottom:6px}' +
-    '.corretor-nome{font-size:18px;font-weight:700;color:#111;margin-bottom:2px}.corretor-empresa{font-size:12px;color:#555;margin-bottom:4px}.corretor-contatos{font-size:12px;color:#333}' +
-    '.compat-box{text-align:center;background:#e50914;color:#fff;border-radius:10px;padding:12px 20px;min-width:110px}.compat-num{font-size:32px;font-weight:700;line-height:1}' +
-    '.compat-label{font-size:9px;font-weight:600;letter-spacing:.1em;text-transform:uppercase;opacity:.85;margin-top:2px}' +
-    '.preco-row{display:flex;justify-content:space-between;align-items:center;margin-bottom:14px}.preco{font-size:28px;font-weight:700;color:#e50914}.titulo-imovel{font-size:14px;font-weight:600;color:#333}' +
-    '.foto-principal{width:100%;max-height:200px;object-fit:cover;border-radius:10px;margin-bottom:14px}' +
-    '.specs-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:14px}' +
+    '<style>*{box-sizing:border-box;margin:0;padding:0}body{font-family:Inter,sans-serif;background:#fff;color:#111}@page{size:A4;margin:0}' +
+    '.pg{width:210mm;min-height:297mm;padding:12mm 14mm;display:flex;flex-direction:column;page-break-after:always}.pg:last-child{page-break-after:auto}' +
+    '.hd{background:#e50914;color:#fff;border-radius:12px;padding:18px 22px;display:flex;justify-content:space-between;align-items:center;margin-bottom:16px}' +
+    '.hd-l .ht{font-size:11px;font-weight:600;letter-spacing:.12em;text-transform:uppercase;opacity:.85;margin-bottom:4px}.hd-l .hb{font-size:26px;font-weight:700}' +
+    '.hd-r{text-align:right}.hd-r .hl{font-size:10px;opacity:.75;margin-bottom:3px}.hd-r .hn{font-size:16px;font-weight:700}' +
+    '.cb{background:#f8f8f8;border-radius:10px;padding:14px 18px;display:flex;justify-content:space-between;align-items:center;margin-bottom:16px}' +
+    '.cn{font-size:18px;font-weight:700;color:#111;margin-bottom:2px}.ce{font-size:12px;color:#555;margin-bottom:4px}.cc{font-size:12px;color:#333}' +
+    '.cx{text-align:center;background:#e50914;color:#fff;border-radius:10px;padding:12px 20px;min-width:110px}.cn2{font-size:32px;font-weight:700;line-height:1}.cl{font-size:9px;letter-spacing:.1em;text-transform:uppercase;opacity:.85;margin-top:2px}' +
+    '.pr{display:flex;justify-content:space-between;align-items:center;margin-bottom:14px}.pv{font-size:28px;font-weight:700;color:#e50914}.pt{font-size:14px;font-weight:600;color:#333}' +
+    '.fp{width:100%;max-height:200px;object-fit:cover;border-radius:10px;margin-bottom:14px}' +
+    '.sg{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:14px}' +
     '.ps{background:#f8f8f8;border-radius:8px;padding:8px 10px}.ps strong{display:block;font-size:8px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:#888;margin-bottom:3px}.ps span{font-size:13px;font-weight:600;color:#111}' +
-    '.fotos-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin-bottom:14px}.fotos-grid img{width:100%;height:90px;object-fit:cover;border-radius:8px}' +
-    '.descricao{font-size:12px;color:#444;line-height:1.6;border-left:3px solid #e50914;padding-left:10px;margin-bottom:14px}' +
-    '.rodape{margin-top:auto;padding-top:12px;border-top:1px solid #eee;display:flex;justify-content:space-between;align-items:center;font-size:10px;color:#888}.rodape-marca{font-size:13px;font-weight:700;color:#e50914}' +
-    '.p2-atendimento{background:#f8f8f8;border-radius:10px;padding:18px 22px;margin-bottom:20px}' +
-    '.p2-at-label{font-size:9px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:#888;margin-bottom:10px}.p2-at-nome{font-size:18px;font-weight:700;color:#111;margin-bottom:4px}' +
-    '.p2-at-contato{font-size:13px;color:#333;margin-bottom:2px}.p2-nota{font-size:11px;color:#888;line-height:1.6;margin-top:20px}' +
+    '.fg{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin-bottom:14px}.fg img{width:100%;height:90px;object-fit:cover;border-radius:8px}' +
+    '.dd{font-size:12px;color:#444;line-height:1.6;border-left:3px solid #e50914;padding-left:10px;margin-bottom:14px}' +
+    '.rd{margin-top:auto;padding-top:12px;border-top:1px solid #eee;display:flex;justify-content:space-between;align-items:center;font-size:10px;color:#888}' +
+    '.rm{font-size:13px;font-weight:700;color:#e50914}' +
+    '.at{background:#f8f8f8;border-radius:10px;padding:18px 22px;margin-bottom:20px}' +
+    '.at-l{font-size:9px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:#888;margin-bottom:10px}' +
+    '.at-n{font-size:18px;font-weight:700;color:#111;margin-bottom:4px}.at-c{font-size:13px;color:#333;margin-bottom:2px}.at-nt{font-size:11px;color:#888;line-height:1.6;margin-top:20px}' +
     '@media print{button{display:none!important}}</style></head><body>' +
-    '<div class="pagina">' +
-    '<div class="cabecalho"><div><div class="cab-titulo">Apresenta\u00e7\u00e3o de Im\u00f3vel</div><div class="cab-bairro">' + (card.bairro || card.titulo) + '</div></div>' +
-    '<div><div class="cab-para-label">Para:</div><div class="cab-para-nome">' + CLIENT_NOME + '</div></div></div>' +
-    '<div class="corretor-box"><div><div class="corretor-label">Corretor Respons\u00e1vel</div><div class="corretor-nome">' + BROKER_NOME + '</div>' +
-    (BROKER_EMPRESA ? '<div class="corretor-empresa">' + BROKER_EMPRESA + '</div>' : '') +
-    '<div class="corretor-contatos">' + (BROKER_EMAIL ? BROKER_EMAIL + '<br>' : '') + (BROKER_TELEFONE || '') + '</div></div>' +
-    '<div class="compat-box"><div class="compat-num">' + card.cp + '%</div><div class="compat-label">Compatibilidade</div></div></div>' +
-    '<div class="preco-row"><div class="preco">R$\u00a0' + card.preco + '</div><div class="titulo-imovel">' + card.titulo + '</div></div>' +
-    fotosPrincipal +
-    '<div class="specs-grid">' + specsHtml + '</div>' +
-    (card.descricao ? '<div class="descricao">' + card.descricao + '</div>' : '') +
-    '<div class="rodape"><div><div class="rodape-marca">' + BROKER_NOME + '</div>' + (BROKER_TELEFONE ? '<div>' + BROKER_TELEFONE + '</div>' : '') + '</div><div>' + now + '</div></div></div>' +
-    '<div class="pagina"><div class="cabecalho"><div><div class="cab-titulo">Detalhes do Im\u00f3vel</div><div class="cab-bairro">' + card.titulo + '</div></div>' +
-    '<div><div class="cab-para-label">Para:</div><div class="cab-para-nome">' + CLIENT_NOME + '</div></div></div>' +
-    (card.fotos.length > 1 ? fotosExtras : '') +
-    '<div class="p2-atendimento"><div class="p2-at-label">Atendimento</div><div class="p2-at-nome">' + BROKER_NOME + '</div>' +
-    (BROKER_TELEFONE ? '<div class="p2-at-contato">Contato: ' + BROKER_TELEFONE + (BROKER_EMPRESA ? '\u00a0\u00a0|\u00a0\u00a0' + BROKER_EMPRESA : '') + '</div>' : '') +
-    '<div class="p2-nota">Documento gerado para apresenta\u00e7\u00e3o do im\u00f3vel ao cliente.</div></div>' +
-    '<div class="rodape"><div><div class="rodape-marca">' + BROKER_NOME + '</div></div><div>' + now + '</div></div></div>' +
+    '<div class="pg">' +
+    '<div class="hd"><div class="hd-l"><div class="ht">Apresenta\u00e7\u00e3o de Im\u00f3vel</div><div class="hb">' + (card.bairro || card.titulo) + '</div></div>' +
+    '<div class="hd-r"><div class="hl">Para:</div><div class="hn">' + CLIENT_NOME + '</div></div></div>' +
+    '<div class="cb"><div><div style="font-size:9px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:#888;margin-bottom:6px">Corretor Respons\u00e1vel</div>' +
+    '<div class="cn">' + BROKER_NOME + '</div>' + (BROKER_EMP ? '<div class="ce">' + BROKER_EMP + '</div>' : '') +
+    '<div class="cc">' + (BROKER_EMAIL ? BROKER_EMAIL + '<br>' : '') + (BROKER_TEL || '') + '</div></div>' +
+    '<div class="cx"><div class="cn2">' + card.cp + '%</div><div class="cl">Compatibilidade</div></div></div>' +
+    '<div class="pr"><div class="pv">R$\u00a0' + card.preco + '</div><div class="pt">' + card.titulo + '</div></div>' +
+    fp + '<div class="sg">' + specsH + '</div>' +
+    (card.descricao ? '<div class="dd">' + card.descricao + '</div>' : '') +
+    '<div class="rd"><div><div class="rm">' + BROKER_NOME + '</div>' + (BROKER_TEL ? '<div>' + BROKER_TEL + '</div>' : '') + '</div><div>' + now + '</div></div>' +
+    '</div>' +
+    '<div class="pg"><div class="hd"><div class="hd-l"><div class="ht">Detalhes do Im\u00f3vel</div><div class="hb">' + card.titulo + '</div></div>' +
+    '<div class="hd-r"><div class="hl">Para:</div><div class="hn">' + CLIENT_NOME + '</div></div></div>' +
+    (card.fotos.length > 1 ? fx : '') +
+    '<div class="at"><div class="at-l">Atendimento</div><div class="at-n">' + BROKER_NOME + '</div>' +
+    (BROKER_TEL ? '<div class="at-c">Contato: ' + BROKER_TEL + (BROKER_EMP ? '\u00a0|\u00a0' + BROKER_EMP : '') + '</div>' : '') +
+    '<div class="at-nt">Documento gerado para apresenta\u00e7\u00e3o do im\u00f3vel ao cliente.</div></div>' +
+    '<div class="rd"><div><div class="rm">' + BROKER_NOME + '</div></div><div>' + now + '</div></div></div>' +
     '</body></html>';
 
-  var blob = new Blob([htmlPdf], { type: 'text/html;charset=utf-8' });
-  var url = URL.createObjectURL(blob);
-  var w = window.open(url, '_blank');
-  if (w) {
-    w.addEventListener('load', function() {
-      setTimeout(function() { w.print(); }, 600);
-    });
-  }
-  setTimeout(function() { URL.revokeObjectURL(url); }, 120000);
+  const blob = new Blob([doc], { type: 'text/html;charset=utf-8' });
+  const url  = URL.createObjectURL(blob);
+  const w    = window.open(url, '_blank');
+  if (w) w.addEventListener('load', () => setTimeout(() => w.print(), 500));
+  setTimeout(() => URL.revokeObjectURL(url), 120000);
 }
 <\/script>
 </body>
 </html>`;
 
   const blob = new Blob([html], { type: 'text/html;charset=utf-8' });
-  const url = URL.createObjectURL(blob);
+  const url  = URL.createObjectURL(blob);
   window.open(url, '_blank');
   setTimeout(() => URL.revokeObjectURL(url), 120000);
 }
