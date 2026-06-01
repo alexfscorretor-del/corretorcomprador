@@ -42,7 +42,7 @@ export function generateClientCatalog(client: Client, broker: Broker): void {
         .join('');
 
       return `
-<div class="card" data-id="${p.id}">
+<div class="card" data-id="${p.id}" onclick="openDetail('${p.id}')" style="cursor:pointer">
   ${
     imgSrc
       ? `<img src="${imgSrc}" class="card-img" alt="${p.titulo}" loading="lazy">`
