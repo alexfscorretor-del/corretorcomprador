@@ -1,5 +1,15 @@
 import { Client, Broker } from '@/types';
-import { calculateCompatibility } from './compatibility';
+import { calculateCompatibility } from '@/lib/compatibility';
+
+// Escapa caracteres HTML para evitar quebras no template literal
+function escHtml(str: string): string {
+  return str
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
 
 export function generateClientCatalog(client: Client, broker: Broker): void {
   if (!client.properties || client.properties.length === 0) {
@@ -11,25 +21,27 @@ export function generateClientCatalog(client: Client, broker: Broker): void {
     (a, b) => calculateCompatibility(client, b) - calculateCompatibility(client, a)
   );
 
-  // Dados do corretor
+  const brokerAny = broker as Record<string, unknown>;
   const brokerNome =
-    (broker as Record<string, unknown>)['nomeExibicao'] as string ||
-    (broker as Record<string, unknown>)['nome_exibicao'] as string ||
+    (brokerAny['nomeExibicao'] as string) ||
+    (brokerAny['nome_exibicao'] as string) ||
     broker.nome ||
     'Seu corretor';
-  const brokerEmpresa = ((broker as Record<string, unknown>)['empresa'] as string) || '';
-  const brokerTelefone = ((broker as Record<string, unknown>)['telefone'] as string) || broker.telefone || '';
-  const brokerEmail = ((broker as Record<string, unknown>)['email'] as string) || '';
+  const brokerEmpresa = (brokerAny['empresa'] as string) || '';
+  const brokerTelefone = (brokerAny['telefone'] as string) || broker.telefone || '';
+  const brokerEmail = (brokerAny['email'] as string) || '';
 
   const topProp = sorted[0];
   const cpTop = calculateCompatibility(client, topProp);
   const topImg = topProp.fotos?.[0] || '';
+  const ratingsKey = `ratings_${client.id}`;
 
   // ── CARDS ────────────────────────────────────────────────────────────────
   const cards = sorted
     .map((p) => {
       const cp = calculateCompatibility(client, p);
       const imgSrc = p.fotos?.[0] || '';
+      const precoFmt = Number(p.preco).toLocaleString('pt-BR', { minimumFractionDigits: 2 });
       const stars = [1, 2, 3, 4, 5]
         .map(
           (n) =>
@@ -38,8 +50,6 @@ export function generateClientCatalog(client: Client, broker: Broker): void {
             };cursor:pointer;font-size:20px;">★</span>`
         )
         .join('');
-
-      const precoFmt = Number(p.preco).toLocaleString('pt-BR', { minimumFractionDigits: 2 });
 
       return `
     <div class="card" data-id="${p.id}">
@@ -75,14 +85,12 @@ export function generateClientCatalog(client: Client, broker: Broker): void {
       const cp = calculateCompatibility(client, p);
       const fotos = p.fotos || [];
       const fotosH = fotos.length
-        ? `<div class="detail-photos">${fotos
-            .map((f) => `<img src="${f}" alt="" loading="lazy">`)
-            .join('')}</div>`
+        ? `<div class="detail-photos">${fotos.map((f) => `<img src="${f}" alt="" loading="lazy">`).join('')}</div>`
         : '';
-
       const condFmt = p.condominio
         ? 'R$ ' + Number(p.condominio).toLocaleString('pt-BR', { minimumFractionDigits: 2 })
         : '-';
+      const precoFmt = Number(p.preco).toLocaleString('pt-BR', { minimumFractionDigits: 2 });
 
       const specs: [string, string | number][] = [
         ['Tipo', p.tipoImovel || '-'],
@@ -107,8 +115,6 @@ export function generateClientCatalog(client: Client, broker: Broker): void {
         .map(([l, v]) => `<div class="dspec"><strong>${escHtml(String(l))}</strong><span>${escHtml(String(v))}</span></div>`)
         .join('');
 
-      const precoFmt = Number(p.preco).toLocaleString('pt-BR', { minimumFractionDigits: 2 });
-
       return `
     <div class="modal-overlay" id="modal-${p.id}" onclick="if(event.target===this)closeDetail('${p.id}')">
       <div class="modal-box">
@@ -119,19 +125,13 @@ export function generateClientCatalog(client: Client, broker: Broker): void {
         ${fotosH}
         <div class="dspecs-grid">${specsH}</div>
         ${p.descricao ? `<div class="modal-desc">${escHtml(p.descricao)}</div>` : ''}
-        ${
-          p.link
-            ? `<p style="margin:12px 0"><a href="${p.link}" target="_blank" rel="noopener noreferrer" style="color:#e50914">Ver anúncio ↗</a></p>`
-            : ''
-        }
+        ${p.link ? `<p style="margin:12px 0"><a href="${p.link}" target="_blank" rel="noopener noreferrer" style="color:#e50914">Ver anúncio ↗</a></p>` : ''}
       </div>
     </div>`;
     })
     .join('');
 
-  // ── RATINGS JS (sem btoa, sem serialização) ───────────────────────────────
-  const ratingsKey = `ratings_${client.id}`;
-
+  // ── HTML FINAL ──────────────────────────────────────────────────────────────
   const html = `<!DOCTYPE html>
 <html lang="pt-BR">
 <head>
@@ -218,7 +218,6 @@ ${topImg ? `.hero::before{content:'';position:absolute;inset:0;background:url('$
 </style>
 </head>
 <body>
-
 <div class="hero">
   <div class="hero-inner">
     <div class="hero-left">
@@ -230,8 +229,8 @@ ${topImg ? `.hero::before{content:'';position:absolute;inset:0;background:url('$
         ${topProp.bairro ? `<span>${escHtml(topProp.bairro)}</span>` : ''}
       </div>
       <div class="hero-actions">
-        <a href="javascript:void(0)" class="hero-btn hero-btn-primary" onclick="openDetail('${topProp.id}')">▶ Ver Detalhes</a>
-        <a href="javascript:void(0)" class="hero-btn hero-btn-secondary" onclick="window.print()">📄 PDF</a>
+        <a href="javascript:void(0)" class="hero-btn hero-btn-primary" onclick="openDetail('${topProp.id}')">&#9654; Ver Detalhes</a>
+        <a href="javascript:void(0)" class="hero-btn hero-btn-secondary" onclick="window.print()">&#128196; PDF</a>
       </div>
       <div class="hero-client-line">Selecionados para ${escHtml(client.nome)}</div>
     </div>
@@ -250,92 +249,47 @@ ${topImg ? `.hero::before{content:'';position:absolute;inset:0;background:url('$
     </div>
   </div>
 </div>
-
 <div class="section">
   <p class="section-title">Imóveis selecionados para você</p>
-  <div class="grid" id="cards-grid">
-    ${cards}
-  </div>
+  <div class="grid" id="cards-grid">${cards}</div>
 </div>
-
 ${detailModals}
-
 <footer class="footer">
   <div class="footer-broker">${escHtml(brokerNome)}</div>
   ${brokerTelefone ? `<div class="footer-contact">${escHtml(brokerTelefone)}</div>` : ''}
   ${brokerEmail ? `<div class="footer-email">${escHtml(brokerEmail)}</div>` : ''}
   ${brokerEmpresa ? `<div class="footer-empresa">${escHtml(brokerEmpresa)}</div>` : ''}
 </footer>
-
 <script>
-var RATINGS_KEY = '${ratingsKey}';
-
-function openDetail(id) {
-  var el = document.getElementById('modal-' + id);
-  if (el) { el.classList.add('open'); document.body.style.overflow = 'hidden'; }
-}
-function closeDetail(id) {
-  var el = document.getElementById('modal-' + id);
-  if (el) { el.classList.remove('open'); document.body.style.overflow = ''; }
-}
-document.addEventListener('keydown', function(e) {
-  if (e.key === 'Escape') {
-    document.querySelectorAll('.modal-overlay.open').forEach(function(m) {
-      m.classList.remove('open');
-      document.body.style.overflow = '';
-    });
-  }
-});
-function saveRatings(r) { try { localStorage.setItem(RATINGS_KEY, JSON.stringify(r)); } catch(e) {} }
-function loadRatings() { try { return JSON.parse(localStorage.getItem(RATINGS_KEY) || '{}'); } catch(e) { return {}; } }
-function applyRatings() {
-  var saved = loadRatings();
-  document.querySelectorAll('.star').forEach(function(s) {
-    var id = s.dataset.id;
-    var val = parseInt(s.dataset.val);
-    var cur = saved[id] || 0;
-    s.style.color = cur >= val ? '#facc15' : '#3f3f46';
-  });
-}
-document.querySelectorAll('.star').forEach(function(star) {
-  star.addEventListener('click', function() {
-    var id = this.dataset.id;
-    var val = parseInt(this.dataset.val);
-    var ratings = loadRatings();
-    ratings[id] = val;
-    saveRatings(ratings);
-    applyRatings();
-  });
-});
+var RATINGS_KEY='${ratingsKey}';
+function openDetail(id){var el=document.getElementById('modal-'+id);if(el){el.classList.add('open');document.body.style.overflow='hidden';}}
+function closeDetail(id){var el=document.getElementById('modal-'+id);if(el){el.classList.remove('open');document.body.style.overflow='';}}
+document.addEventListener('keydown',function(e){if(e.key==='Escape'){document.querySelectorAll('.modal-overlay.open').forEach(function(m){m.classList.remove('open');document.body.style.overflow='';});}});
+function saveRatings(r){try{localStorage.setItem(RATINGS_KEY,JSON.stringify(r));}catch(e){}}
+function loadRatings(){try{return JSON.parse(localStorage.getItem(RATINGS_KEY)||'{}');}catch(e){return{};}}
+function applyRatings(){var s=loadRatings();document.querySelectorAll('.star').forEach(function(el){var id=el.dataset.id;var val=parseInt(el.dataset.val);var cur=s[id]||0;el.style.color=cur>=val?'#facc15':'#3f3f46';});}
+document.querySelectorAll('.star').forEach(function(star){star.addEventListener('click',function(){var id=this.dataset.id;var val=parseInt(this.dataset.val);var r=loadRatings();r[id]=val;saveRatings(r);applyRatings();});});
 applyRatings();
 <\/script>
 </body>
 </html>`;
 
-  // Abre em nova aba usando document.write — evita popup blocker do Blob URL
+  // Abre em nova aba via document.write (evita bloqueio de popup com Blob URL)
   const newTab = window.open('', '_blank');
   if (!newTab) {
-    // Fallback: baixar como arquivo .html
+    // Fallback: baixa como arquivo .html
     const blob = new Blob([html], { type: 'text/html;charset=utf-8' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
     a.download = `imoveis-${client.nome.replace(/\s+/g, '-').toLowerCase()}.html`;
+    document.body.appendChild(a);
     a.click();
+    document.body.removeChild(a);
     setTimeout(() => URL.revokeObjectURL(url), 10000);
     return;
   }
   newTab.document.open();
   newTab.document.write(html);
   newTab.document.close();
-}
-
-// Escapa caracteres HTML para evitar XSS e quebras no template literal
-function escHtml(str: string): string {
-  return str
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-    .replace(/'/g, '&#39;');
 }
