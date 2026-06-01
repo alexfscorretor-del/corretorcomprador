@@ -12,10 +12,10 @@ export function generateClientCatalog(client: Client, broker: Broker): void {
   );
 
   /* ─── DADOS DO BROKER ──────────────────────────────────────────────────── */
-  const brokerNome     = broker.nomeCompleto   || broker.nome || 'Corretor';
-  const brokerEmpresa  = broker.empresa        || '';
-  const brokerTelefone = broker.telefone       || '';
-  const brokerEmail    = broker.email          || '';
+  const brokerNome     = broker.nome || 'Corretor';
+  const brokerTelefone = broker.telefone || '';
+  const brokerEmail    = broker.email    || '';
+  const brokerEmpresa  = (broker as Record<string, unknown>).empresa as string || '';
 
   /* ─── DADOS PARA PDF (printCard) ───────────────────────────────────────── */
   const printCardsData = sorted.map((p) => {
@@ -67,7 +67,6 @@ export function generateClientCatalog(client: Client, broker: Broker): void {
         )
         .join('');
 
-      // atributos em texto linear (ex: "Bueno • 120m² • 3 qtos • 2 vagas")
       const attParts: string[] = [];
       if (p.bairro)           attParts.push(p.bairro);
       if (p.tamanho != null)  attParts.push(p.tamanho + 'm\u00b2');
@@ -162,19 +161,13 @@ export function generateClientCatalog(client: Client, broker: Broker): void {
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
 body{font-family:Inter,sans-serif;background:#09090b;color:#e4e4e7;min-height:100vh}
-
-/* HEADER */
 .page-header{background:#18181b;border-bottom:1px solid #27272a;padding:20px 24px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px}
 .header-left{display:flex;align-items:center;gap:14px}
 .broker-avatar{width:48px;height:48px;border-radius:50%;object-fit:cover;border:2px solid #3f3f46}
 .broker-info h1{font-size:16px;font-weight:700;color:#fff}
 .broker-info p{font-size:12px;color:#a1a1aa}
 .client-tag{background:rgba(229,9,20,.12);border:1px solid rgba(229,9,20,.3);color:#ff4d57;border-radius:20px;padding:6px 14px;font-size:13px;font-weight:600}
-
-/* GRID */
 .catalog-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:20px;padding:28px 24px;max-width:1200px;margin:0 auto}
-
-/* CARD — mesmo design do card interno */
 .card{background:#18181b;border:1px solid #27272a;border-radius:16px;overflow:hidden;transition:transform .2s,box-shadow .2s;cursor:pointer}
 .card:hover{transform:translateY(-3px);box-shadow:0 12px 32px rgba(0,0,0,.4)}
 .card-img-wrap{position:relative;width:100%;height:190px}
@@ -190,12 +183,8 @@ body{font-family:Inter,sans-serif;background:#09090b;color:#e4e4e7;min-height:10
 .card-actions{display:flex;gap:8px;margin-top:12px}
 .btn-detail{flex:1;padding:10px;border-radius:10px;border:1px solid rgba(229,9,20,.5);background:rgba(229,9,20,.12);color:#ff4d57;font-size:12px;font-weight:700;cursor:pointer;transition:all .2s}
 .btn-detail:hover{background:rgba(229,9,20,.22);border-color:#e50914;color:#fff}
-
-/* THUMBS DO MODAL */
 .detail-photo-thumb{cursor:pointer;border-radius:6px;transition:opacity .2s}
 .detail-photo-thumb:hover{opacity:.8}
-
-/* LIGHTBOX */
 #lightbox-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.92);z-index:9999;align-items:center;justify-content:center;flex-direction:column}
 #lightbox-overlay.lb-open{display:flex}
 #lb-img{max-width:90vw;max-height:80vh;object-fit:contain;border-radius:8px;user-select:none;transition:opacity .25s}
@@ -205,8 +194,6 @@ body{font-family:Inter,sans-serif;background:#09090b;color:#e4e4e7;min-height:10
 #lb-prev{left:12px}
 #lb-next{right:12px}
 #lb-prev:hover,#lb-next:hover{background:rgba(255,255,255,.25)}
-
-/* MODAL */
 .modal-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.75);z-index:1000;align-items:center;justify-content:center;padding:16px}
 .modal-overlay.open{display:flex}
 .modal-box{background:#18181b;border:1px solid #27272a;border-radius:20px;width:100%;max-width:640px;max-height:90vh;overflow-y:auto;padding:24px;position:relative}
@@ -225,10 +212,7 @@ body{font-family:Inter,sans-serif;background:#09090b;color:#e4e4e7;min-height:10
 .dspec strong{font-size:11px;color:#a1a1aa;text-transform:uppercase;letter-spacing:.05em}
 .dspec span{font-size:13px;color:#e4e4e7;font-weight:600}
 .modal-desc{font-size:13px;color:#a1a1aa;line-height:1.6;margin-top:12px}
-
-/* FOOTER */
 .page-footer{text-align:center;padding:32px 24px;color:#52525b;font-size:12px;border-top:1px solid #27272a;margin-top:8px}
-
 @media(max-width:600px){
   .catalog-grid{grid-template-columns:1fr;padding:16px}
   .page-header{padding:16px}
@@ -445,14 +429,12 @@ function lbNav(dir) {
   lbIndex = (lbIndex + dir + lbPhotos.length) % lbPhotos.length;
   lbRender();
 }
-// Teclado: setas + ESC (ESC fecha lightbox primeiro se estiver aberto)
 document.addEventListener('keydown', function(e) {
   if (!document.getElementById('lightbox-overlay').classList.contains('lb-open')) return;
   if (e.key === 'ArrowLeft')  lbNav(-1);
   if (e.key === 'ArrowRight') lbNav(1);
   if (e.key === 'Escape')     closeLightbox();
 });
-// Swipe mobile
 document.getElementById('lightbox-overlay').addEventListener('touchstart', function(e) {
   lbStartX = e.changedTouches[0].clientX;
 }, { passive: true });
@@ -460,7 +442,6 @@ document.getElementById('lightbox-overlay').addEventListener('touchend', functio
   const dx = e.changedTouches[0].clientX - lbStartX;
   if (Math.abs(dx) > 40) lbNav(dx < 0 ? 1 : -1);
 });
-// Fechar clicando no overlay fora da imagem
 document.getElementById('lightbox-overlay').addEventListener('click', function(e) {
   if (e.target === document.getElementById('lightbox-overlay')) closeLightbox();
 });
