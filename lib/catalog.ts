@@ -44,23 +44,17 @@ export function generateClientCatalog(client: Client, broker: Broker): void {
       return `
 <div class="card" data-id="${p.id}" onclick="openDetail('${p.id}')" style="cursor:pointer">
   ${
-    imgSrc
+          <div style="position:relative">
+imgSrc
       ? `<img src="${imgSrc}" class="card-img" alt="${p.titulo}" loading="lazy">`
       : '<div class="card-img-placeholder"></div>'
   }
   <div class="card-body">
-    <div class="card-top">
-      <span class="compat-badge">${cp}% Compat\u00edvel</span>
-      <span class="price-sm">R$\u00a0${Number(p.preco).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
-    </div>
+        <span class="compat-badge" style="position:absolute;top:10px;right:10px;z-index:2">${cp}% Compat\u00edvel</span>
+      div>
     <h3 class="card-title">${p.titulo}</h3>
-    <p class="card-bairro">${p.bairro || ''}</p>
-    <div class="card-specs">
-      ${p.quartos != null ? `<span>&#x1F6CF; ${p.quartos} quartos</span>` : ''}
-      ${p.suites != null ? `<span>&#x1F6BF; ${p.suites} su\u00edtes</span>` : ''}
-      ${p.vagas != null ? `<span>&#x1F697; ${p.vagas} vagas</span>` : ''}
-      ${p.tamanho != null ? `<span>&#x1F4D0; ${p.tamanho}m\u00b2</span>` : ''}
-    </div>
+          <p style="font-size:18px;font-weight:700;color:#E50914;margin:8px 0">R$ ${Number(p.preco).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
+      <p style="font-size:13px;color:#a1a1aa;margin-bottom:10px">${p.bairro || ''} • ${p.tamanho || '?'}m² • ${p.quartos ?? 0} qtos • ${p.vagas ?? 0} vaga(s)</p>
     <div class="stars-row" data-id="${p.id}">${stars}</div>
     ${p.descricao ? `<p class="card-desc">${p.descricao}</p>` : ''}
     <div class="card-actions">
