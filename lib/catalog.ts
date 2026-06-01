@@ -3,7 +3,7 @@ import { calculateCompatibility } from './compatibility';
 
 export function generateClientCatalog(client: Client, broker: Broker): void {
   if (!client.properties || client.properties.length === 0) {
-    alert('Este cliente não possui imóveis compatíveis cadastrados.');
+    alert('Cadastre pelo menos um imóvel primeiro.');
     return;
   }
 
@@ -11,47 +11,17 @@ export function generateClientCatalog(client: Client, broker: Broker): void {
     (a, b) => calculateCompatibility(client, b) - calculateCompatibility(client, a)
   );
 
-  /* ─── DADOS DO BROKER ──────────────────────────────────────────────────── */
-  const brokerNome     = broker.nome || 'Corretor';
+  const ratingsKey = `ratings_${client.id}`;
+
+  const topProp = sorted[0];
+  const cpTop = calculateCompatibility(client, topProp);
+  const topImg = topProp.fotos?.[0] || '';
+
+  const brokerNome     = broker.nome     || 'Seu corretor';
+  const brokerEmpresa  = broker.empresa  || '';
   const brokerTelefone = broker.telefone || '';
   const brokerEmail    = broker.email    || '';
-  const brokerEmpresa  = broker.empresa  || '';
-
-  /* ─── DADOS PARA PDF (printCard) ───────────────────────────────────────── */
-  const printCardsData = sorted.map((p) => {
-    const specs: [string, string | number][] = [
-      ['Tipo', p.tipoImovel || '-'],
-      ['Bairro', p.bairro || '-'],
-      ['Área', (p.tamanho || '?') + 'm²'],
-      ['Quartos', p.quartos ?? '-'],
-      ['Suítes', p.suites ?? '-'],
-      ['Banheiros', p.banheiros ?? '-'],
-      ['Vagas', p.vagas ?? '-'],
-      ['Andar', p.andar ?? '-'],
-      ['Condomínio', p.condominio ? 'R$ ' + Number(p.condominio).toLocaleString('pt-BR', { minimumFractionDigits: 2 }) : '-'],
-      ['Prédio Novo', p.predioNovo || '-'],
-      ['Reformado', p.reformado || '-'],
-      ['Mobiliado', p.mobiliado ? 'Sim' : 'Não'],
-      ['Varanda', p.varanda ? 'Sim' : 'Não'],
-      ['Área Lazer', p.areaLazer ? 'Sim' : 'Não'],
-      ['Pet', p.aceitaPet ? 'Sim' : 'Não'],
-      ['Financiamento', p.aceitaFinanciamento || '-'],
-    ];
-    return {
-      id: p.id,
-      titulo: p.titulo,
-      preco: p.preco,
-      bairro: p.bairro,
-      imgSrc: p.fotos?.[0] || '',
-      fotos: p.fotos || [],
-      specs,
-      descricao: p.descricao || '',
-      link: p.link || '',
-      compat: calculateCompatibility(client, p),
-    };
-  });
-
-  const ratingsKey = `ratings_${client.id}`;
+  const brokerCreci    = broker.creci    || '';
 
   /* ─── CARDS ────────────────────────────────────────────────────────────── */
   const cards = sorted
@@ -67,31 +37,31 @@ export function generateClientCatalog(client: Client, broker: Broker): void {
         )
         .join('');
 
-      const attParts: string[] = [];
-      if (p.bairro)           attParts.push(p.bairro);
-      if (p.tamanho != null)  attParts.push(p.tamanho + 'm\u00b2');
-      if (p.quartos  != null) attParts.push(p.quartos + ' qto' + (p.quartos !== 1 ? 's' : ''));
-      if (p.vagas    != null) attParts.push(p.vagas + ' vaga' + (p.vagas !== 1 ? 's' : ''));
-      const attLine = attParts.join(' \u2022 ');
-
       return `
-<div class="card" data-id="${p.id}" onclick="openDetail('${p.id}')" role="button" tabindex="0" aria-label="Ver detalhes de ${p.titulo}">
-  <div class="card-img-wrap">
-    ${
-      imgSrc
-        ? `<img src="${imgSrc}" class="card-img" alt="${p.titulo}" loading="lazy">`
-        : '<div class="card-img-placeholder"></div>'
-    }
-    <span class="compat-badge">${cp}% Compat\u00edvel</span>
-  </div>
+<div class="card" data-id="${p.id}">
+  ${
+    imgSrc
+      ? `<img src="${imgSrc}" class="card-img" alt="${p.titulo}" loading="lazy">`
+      : '<div class="card-img-placeholder"></div>'
+  }
   <div class="card-body">
+    <div class="card-top">
+      <span class="compat-badge">${cp}% Compat\u00edvel</span>
+      <span class="price-sm">R$\u00a0${Number(p.preco).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
+    </div>
     <h3 class="card-title">${p.titulo}</h3>
-    <p class="card-price">R$\u00a0${Number(p.preco).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
-    ${attLine ? `<p class="card-specs">${attLine}</p>` : ''}
+    <p class="card-bairro">${p.bairro || ''}</p>
+    <div class="card-specs">
+      ${p.quartos != null ? `<span>&#x1F6CF; ${p.quartos} quartos</span>` : ''}
+      ${p.suites != null ? `<span>&#x1F6BF; ${p.suites} su\u00edtes</span>` : ''}
+      ${p.vagas != null ? `<span>&#x1F697; ${p.vagas} vagas</span>` : ''}
+      ${p.tamanho != null ? `<span>&#x1F4D0; ${p.tamanho}m\u00b2</span>` : ''}
+    </div>
     <div class="stars-row" data-id="${p.id}">${stars}</div>
     ${p.descricao ? `<p class="card-desc">${p.descricao}</p>` : ''}
-    <div class="card-actions" onclick="event.stopPropagation()">
+    <div class="card-actions">
       <button class="btn-detail" onclick="openDetail('${p.id}')">Ver detalhes</button>
+      <button class="btn-pdf" onclick="printCard('${p.id}')">&#x1F4C4; PDF</button>
     </div>
   </div>
 </div>`;
@@ -104,7 +74,7 @@ export function generateClientCatalog(client: Client, broker: Broker): void {
       const cp = calculateCompatibility(client, p);
       const fotos = p.fotos || [];
       const fotosH = fotos.length
-        ? `<div class="detail-photos">${fotos.map((f, i) => `<img src="${f}" alt="" loading="lazy" class="detail-photo-thumb" onclick="openLightbox('${p.id}',${i})" tabindex="0" role="button" aria-label="Ampliar foto ${i + 1}">`).join('')}</div>`
+        ? `<div class="detail-photos">${fotos.map((f) => `<img src="${f}" alt="" loading="lazy">`).join('')}</div>`
         : '';
 
       const specs: [string, string | number][] = [
@@ -149,6 +119,45 @@ export function generateClientCatalog(client: Client, broker: Broker): void {
     })
     .join('');
 
+  /* ─── PRINT CARDS DATA ─────────────────────────────────────────────────────────── */
+  const printCardsData = sorted.map((p) => {
+    const cp = calculateCompatibility(client, p);
+    const imgSrc = p.fotos?.[0] || '';
+    const fotos = p.fotos || [];
+
+    const specs: [string, string | number][] = [
+      ['TIPO', p.tipoImovel || '-'],
+      ['BAIRRO', p.bairro || '-'],
+      ['\u00c1REA', (p.tamanho || '?') + 'm\u00b2'],
+      ['QUARTOS', p.quartos ?? '-'],
+      ['SU\u00cdTES', p.suites ?? '-'],
+      ['BANHEIROS', p.banheiros ?? '-'],
+      ['VAGAS', p.vagas ?? '-'],
+      ['ANDAR', p.andar ?? '-'],
+      ['CONDOM\u00cdNIO', p.condominio ? 'R$ ' + Number(p.condominio).toLocaleString('pt-BR', { minimumFractionDigits: 2 }) : '-'],
+      ['PR\u00c9DIO NOVO', p.predioNovo || '-'],
+      ['REFORMADO', p.reformado || '-'],
+      ['MOBILIADO', p.mobiliado ? 'Sim' : 'N\u00e3o'],
+      ['VARANDA', p.varanda ? 'Sim' : 'N\u00e3o'],
+      ['\u00c1REA LAZER', p.areaLazer ? 'Sim' : 'N\u00e3o'],
+      ['PET', p.aceitaPet ? 'Sim' : 'N\u00e3o'],
+      ['FINANCIAMENTO', p.aceitaFinanciamento || '-'],
+    ];
+
+    return {
+      id: p.id,
+      titulo: p.titulo,
+      bairro: p.bairro || '',
+      preco: Number(p.preco).toLocaleString('pt-BR', { minimumFractionDigits: 2 }),
+      cp,
+      imgSrc,
+      fotos,
+      specs,
+      descricao: p.descricao || '',
+      link: p.link || '',
+    };
+  });
+
   /* ─── HTML FINAL ───────────────────────────────────────────────────────── */
   const html = `<!DOCTYPE html>
 <html lang="pt-BR">
@@ -157,102 +166,135 @@ export function generateClientCatalog(client: Client, broker: Broker): void {
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Im\u00f3veis para ${client.nome}</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,600;1,400&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
-body{font-family:Inter,sans-serif;background:#09090b;color:#e4e4e7;min-height:100vh}
-.page-header{background:#18181b;border-bottom:1px solid #27272a;padding:20px 24px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px}
-.header-left{display:flex;align-items:center;gap:14px}
-.broker-avatar{width:48px;height:48px;border-radius:50%;object-fit:cover;border:2px solid #3f3f46}
-.broker-info h1{font-size:16px;font-weight:700;color:#fff}
-.broker-info p{font-size:12px;color:#a1a1aa}
-.client-tag{background:rgba(229,9,20,.12);border:1px solid rgba(229,9,20,.3);color:#ff4d57;border-radius:20px;padding:6px 14px;font-size:13px;font-weight:600}
-.catalog-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:20px;padding:28px 24px;max-width:1200px;margin:0 auto}
-.card{background:#18181b;border:1px solid #27272a;border-radius:16px;overflow:hidden;transition:transform .2s,box-shadow .2s;cursor:pointer}
+body{background:#0a0a0a;color:#e4e4e7;font-family:'Inter',sans-serif;min-height:100vh}
+.hero{position:relative;background:#111;overflow:hidden;padding:60px 24px 50px}
+${topImg ? `.hero::before{content:'';position:absolute;inset:0;background:url('${topImg}') center/cover no-repeat;opacity:.15;z-index:0}` : ''}
+.hero::after{content:'';position:absolute;inset:0;background:linear-gradient(90deg,rgba(10,10,10,.92) 0%,rgba(10,10,10,.68) 45%,rgba(10,10,10,.3) 100%);z-index:0}
+.hero-inner{position:relative;z-index:1;max-width:1180px;margin:0 auto;display:flex;justify-content:space-between;align-items:flex-end;flex-wrap:wrap;gap:24px}
+.hero-left{max-width:720px}
+.hero-greeting{font-size:13px;color:#a1a1aa;letter-spacing:.08em;text-transform:uppercase;margin-bottom:8px}
+.hero-name{font-size:clamp(28px,5vw,48px);font-weight:700;color:#fff;line-height:1.05}
+.hero-meta{display:flex;flex-wrap:wrap;gap:18px;margin-top:14px;font-size:14px;font-weight:600;color:#f4f4f5}
+.hero-meta .compat{color:#4ade80}
+.hero-actions{display:flex;gap:12px;flex-wrap:wrap;margin-top:26px}
+.hero-btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;padding:13px 18px;border-radius:14px;font-size:14px;font-weight:700;transition:.2s;cursor:pointer;border:none}
+.hero-btn-primary{background:#fff;color:#111}
+.hero-btn-primary:hover{background:#e4e4e7}
+.hero-btn-secondary{background:rgba(255,255,255,.12);border:1px solid rgba(255,255,255,.12);color:#fff}
+.hero-btn-secondary:hover{background:rgba(255,255,255,.18)}
+.hero-client-line{margin-top:12px;font-size:14px;color:#e4e4e7;font-weight:600}
+.hero-right{min-width:260px;max-width:340px;text-align:right;display:flex;flex-direction:column;align-items:flex-end;gap:4px}
+.hero-broker-label{font-size:11px;color:#71717a;letter-spacing:.06em;text-transform:uppercase;margin-bottom:8px}
+.hero-broker-name{font-family:'Cormorant Garamond',serif;font-size:clamp(28px,4vw,44px);font-weight:600;color:#e50914;font-style:italic;line-height:1.05}
+.hero-broker-sub{font-size:12px;color:#a1a1aa;margin-top:2px}
+.hero-broker-phone{font-size:14px;color:#e4e4e7;margin-top:4px;font-weight:600}
+.hero-broker-email{font-size:12px;color:#a1a1aa}
+.hero-compat{margin-top:16px;background:rgba(229,9,20,.12);border:1px solid rgba(229,9,20,.3);border-radius:16px;padding:14px 18px;display:inline-block}
+.hero-compat-num{font-size:38px;font-weight:700;color:#e50914;line-height:1}
+.hero-compat-label{font-size:10px;color:#a1a1aa;text-transform:uppercase;letter-spacing:.06em;margin-top:2px}
+.hero-feat-title{font-size:11px;color:#71717a;margin-top:12px}
+.hero-feat-name{font-size:15px;font-weight:600;color:#fff;margin-top:3px;max-width:220px}
+.section{max-width:1180px;margin:0 auto;padding:40px 20px}
+.section-title{font-size:13px;color:#71717a;text-transform:uppercase;letter-spacing:.08em;margin-bottom:20px}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(280px,100%),1fr));gap:20px}
+.card{background:#18181b;border:1px solid #27272a;border-radius:16px;overflow:hidden;transition:transform .2s,box-shadow .2s}
 .card:hover{transform:translateY(-3px);box-shadow:0 12px 32px rgba(0,0,0,.4)}
-.card-img-wrap{position:relative;width:100%;height:190px}
-.card-img{width:100%;height:190px;object-fit:cover;display:block}
+.card-img{width:100%;height:190px;object-fit:cover}
 .card-img-placeholder{width:100%;height:190px;background:#27272a}
-.compat-badge{position:absolute;top:10px;right:10px;background:rgba(229,9,20,.85);color:#fff;border-radius:20px;padding:3px 10px;font-size:11px;font-weight:700;backdrop-filter:blur(4px)}
 .card-body{padding:16px}
-.card-title{font-size:15px;font-weight:700;color:#fff;margin-bottom:4px;line-height:1.3}
-.card-price{font-size:14px;font-weight:700;color:#e50914;margin-bottom:6px}
-.card-specs{font-size:12px;color:#a1a1aa;margin-bottom:10px;line-height:1.5}
+.card-top{display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;gap:10px}
+.compat-badge{background:rgba(229,9,20,.15);color:#ff4d57;border:1px solid rgba(229,9,20,.3);border-radius:20px;padding:3px 10px;font-size:11px;font-weight:700}
+.price-sm{font-size:13px;font-weight:700;color:#fff}
+.card-title{font-size:15px;font-weight:700;color:#fff;margin-bottom:3px;line-height:1.3}
+.card-bairro{font-size:12px;color:#a1a1aa;margin-bottom:10px}
+.card-specs{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:10px}
+.card-specs span{background:#27272a;border-radius:6px;padding:3px 8px;font-size:11px;color:#d4d4d8}
 .stars-row{margin:8px 0;user-select:none}
 .card-desc{font-size:12px;color:#a1a1aa;margin-top:8px;line-height:1.5;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden}
 .card-actions{display:flex;gap:8px;margin-top:12px}
-.btn-detail{flex:1;padding:10px;border-radius:10px;border:1px solid rgba(229,9,20,.5);background:rgba(229,9,20,.12);color:#ff4d57;font-size:12px;font-weight:700;cursor:pointer;transition:all .2s}
-.btn-detail:hover{background:rgba(229,9,20,.22);border-color:#e50914;color:#fff}
-.detail-photo-thumb{cursor:pointer;border-radius:6px;transition:opacity .2s}
-.detail-photo-thumb:hover{opacity:.8}
-#lightbox-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.92);z-index:9999;align-items:center;justify-content:center;flex-direction:column}
-#lightbox-overlay.lb-open{display:flex}
-#lb-img{max-width:90vw;max-height:80vh;object-fit:contain;border-radius:8px;user-select:none;transition:opacity .25s}
-#lb-counter{color:#e4e4e7;font-size:13px;margin-top:10px;font-family:Inter,sans-serif}
-#lb-close{position:absolute;top:16px;right:20px;background:none;border:none;color:#fff;font-size:28px;cursor:pointer;line-height:1;z-index:1}
-#lb-prev,#lb-next{position:absolute;top:50%;transform:translateY(-50%);background:rgba(255,255,255,.12);border:none;color:#fff;font-size:28px;cursor:pointer;padding:12px 18px;border-radius:8px;transition:background .2s;z-index:1;line-height:1}
-#lb-prev{left:12px}
-#lb-next{right:12px}
-#lb-prev:hover,#lb-next:hover{background:rgba(255,255,255,.25)}
-.modal-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.75);z-index:1000;align-items:center;justify-content:center;padding:16px}
-.modal-overlay.open{display:flex}
-.modal-box{background:#18181b;border:1px solid #27272a;border-radius:20px;width:100%;max-width:640px;max-height:90vh;overflow-y:auto;padding:24px;position:relative}
-.modal-header{display:flex;justify-content:flex-end;gap:10px;margin-bottom:12px}
-.modal-close{background:none;border:none;color:#a1a1aa;font-size:20px;cursor:pointer;padding:4px 8px;border-radius:6px;transition:color .2s}
-.modal-close:hover{color:#fff}
-.modal-pdf-btn{padding:7px 14px;border-radius:8px;border:1px solid rgba(229,9,20,.4);background:rgba(229,9,20,.1);color:#ff4d57;font-size:12px;font-weight:700;cursor:pointer;transition:all .2s}
-.modal-pdf-btn:hover{background:rgba(229,9,20,.2)}
-.modal-compat{font-size:12px;color:#ff4d57;font-weight:700;margin-bottom:6px}
-.modal-title{font-size:20px;font-weight:700;color:#fff;margin-bottom:6px}
-.modal-price{font-size:18px;font-weight:700;color:#e50914;margin-bottom:16px}
-.detail-photos{display:grid;grid-template-columns:repeat(auto-fill,minmax(120px,1fr));gap:8px;margin-bottom:16px}
-.detail-photos img{width:100%;height:90px;object-fit:cover;border-radius:8px}
-.dspecs-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:16px}
-.dspec{background:#27272a;border-radius:8px;padding:10px 12px;display:flex;flex-direction:column;gap:3px}
-.dspec strong{font-size:11px;color:#a1a1aa;text-transform:uppercase;letter-spacing:.05em}
-.dspec span{font-size:13px;color:#e4e4e7;font-weight:600}
-.modal-desc{font-size:13px;color:#a1a1aa;line-height:1.6;margin-top:12px}
-.page-footer{text-align:center;padding:32px 24px;color:#52525b;font-size:12px;border-top:1px solid #27272a;margin-top:8px}
-@media(max-width:600px){
-  .catalog-grid{grid-template-columns:1fr;padding:16px}
-  .page-header{padding:16px}
-  .dspecs-grid{grid-template-columns:1fr}
-  #lb-prev{left:4px}
-  #lb-next{right:4px}
+.btn-detail{flex:1;padding:10px;border-radius:10px;border:1px solid #3f3f46;background:transparent;color:#e4e4e7;font-size:12px;font-weight:700;cursor:pointer;transition:all .2s}
+.btn-detail:hover{background:#27272a;color:#fff;border-color:#52525b}
+.btn-pdf{padding:10px 14px;border-radius:10px;border:1px solid rgba(229,9,20,.4);background:rgba(229,9,20,.1);color:#ff4d57;font-size:12px;font-weight:700;cursor:pointer;transition:all .2s;white-space:nowrap}
+.btn-pdf:hover{background:rgba(229,9,20,.2);border-color:#e50914}
+.modal-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.85);z-index:999;overflow-y:auto;padding:20px}
+.modal-overlay.open{display:flex;align-items:flex-start;justify-content:center}
+.modal-box{background:#18181b;border:1px solid #27272a;border-radius:20px;width:100%;max-width:700px;padding:28px;position:relative;margin:auto}
+.modal-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:12px}
+.modal-close{background:#27272a;border:none;color:#a1a1aa;width:32px;height:32px;border-radius:50%;cursor:pointer;font-size:16px;display:flex;align-items:center;justify-content:center}
+.modal-close:hover{background:#3f3f46;color:#fff}
+.modal-pdf-btn{display:inline-flex;align-items:center;gap:6px;padding:8px 14px;border-radius:10px;border:1px solid rgba(229,9,20,.4);background:rgba(229,9,20,.1);color:#ff4d57;font-size:12px;font-weight:700;cursor:pointer;transition:all .2s}
+.modal-pdf-btn:hover{background:rgba(229,9,20,.2);border-color:#e50914}
+.modal-compat{display:inline-block;background:rgba(229,9,20,.15);color:#ff4d57;border:1px solid rgba(229,9,20,.3);border-radius:20px;padding:4px 12px;font-size:12px;font-weight:700;margin-bottom:10px}
+.modal-title{font-size:22px;font-weight:700;color:#fff;margin-bottom:6px}
+.modal-price{font-size:26px;font-weight:700;color:#e50914;margin-bottom:16px}
+.detail-photos{display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:8px;margin-bottom:16px}
+.detail-photos img{width:100%;height:140px;object-fit:cover;border-radius:10px}
+.dspecs-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:16px}
+.dspec strong{display:block;font-size:10px;color:#71717a;text-transform:uppercase;margin-bottom:2px}
+.dspec span{font-size:13px;color:#e4e4e7}
+.modal-desc{font-size:13px;color:#a1a1aa;line-height:1.6;border-left:3px solid #e50914;padding-left:12px}
+.footer{border-top:1px solid #1c1c1e;padding:40px 24px;text-align:center}
+.footer-broker{font-family:'Cormorant Garamond',serif;font-size:30px;font-weight:600;color:#e50914;font-style:italic;margin-bottom:6px}
+.footer-contact{font-size:14px;color:#e4e4e7;margin-top:4px}
+.footer-email{font-size:12px;color:#a1a1aa;margin-top:4px}
+.footer-empresa{font-size:12px;color:#71717a;margin-top:3px;letter-spacing:.04em;text-transform:uppercase}
+.footer-creci{font-size:11px;color:#52525b;margin-top:3px}
+@media(max-width:700px){
+  .hero-inner{flex-direction:column;align-items:flex-start}
+  .hero-right{text-align:left;align-items:flex-start;min-width:unset;max-width:unset}
+  .hero-feat-name{max-width:none}
+  .dspecs-grid{grid-template-columns:repeat(2,1fr)}
 }
 </style>
 </head>
 <body>
-
-<header class="page-header">
-  <div class="header-left">
-    ${broker.fotoPerfil ? `<img src="${broker.fotoPerfil}" class="broker-avatar" alt="${brokerNome}">` : ''}
-    <div class="broker-info">
-      <h1>${brokerNome}</h1>
-      <p>${brokerEmpresa}${brokerEmpresa && brokerTelefone ? ' &middot; ' : ''}${brokerTelefone}</p>
+<div class="hero">
+  <div class="hero-inner">
+    <div class="hero-left">
+      <p class="hero-greeting">Sele\u00e7\u00e3o de im\u00f3veis preparada para voc\u00ea</p>
+      <h1 class="hero-name">${topProp.titulo}</h1>
+      <div class="hero-meta">
+        <span class="compat">${cpTop}% Compat\u00edvel</span>
+        ${topProp.quartos != null ? `<span>${topProp.quartos} Quartos</span>` : ''}
+        ${topProp.bairro ? `<span>${topProp.bairro}</span>` : ''}
+      </div>
+      <div class="hero-actions">
+        <button class="hero-btn hero-btn-primary" onclick="openDetail('${topProp.id}')">&#x25B6; Ver Detalhes</button>
+        <button class="hero-btn hero-btn-secondary" onclick="window.print()">&#x1F4C4; Imprimir / PDF</button>
+      </div>
+      <div class="hero-client-line">Selecionados para ${client.nome}</div>
+    </div>
+    <div class="hero-right">
+      <div class="hero-broker-label">Corretor respons\u00e1vel</div>
+      <div class="hero-broker-name">${brokerNome}</div>
+      ${brokerEmpresa  ? `<div class="hero-broker-sub">${brokerEmpresa}</div>` : ''}
+      ${brokerTelefone ? `<div class="hero-broker-phone">${brokerTelefone}</div>` : ''}
+      ${brokerEmail    ? `<div class="hero-broker-email">${brokerEmail}</div>` : ''}
+      <div class="hero-compat">
+        <div class="hero-compat-num">${cpTop}%</div>
+        <div class="hero-compat-label">Compatibilidade</div>
+        <div class="hero-feat-title">Im\u00f3vel em destaque</div>
+        <div class="hero-feat-name">${topProp.titulo}</div>
+      </div>
     </div>
   </div>
-  <span class="client-tag">Im\u00f3veis para ${client.nome}</span>
-</header>
-
-<main class="catalog-grid">
-${cards}
-</main>
-
-${detailModals}
-
-<div id="lightbox-overlay" role="dialog" aria-modal="true" aria-label="Galeria de fotos">
-  <button id="lb-close" onclick="closeLightbox()" aria-label="Fechar">&times;</button>
-  <button id="lb-prev" onclick="lbNav(-1)" aria-label="Foto anterior">&#8249;</button>
-  <img id="lb-img" src="" alt="Foto ampliada">
-  <div id="lb-counter"></div>
-  <button id="lb-next" onclick="lbNav(1)" aria-label="Pr\u00f3xima foto">&#8250;</button>
 </div>
-
-<footer class="page-footer">
-  ${brokerNome}${brokerEmpresa ? ' &middot; ' + brokerEmpresa : ''}${brokerEmail ? ' &middot; ' + brokerEmail : ''}
+<div class="section">
+  <p class="section-title">Im\u00f3veis selecionados para voc\u00ea</p>
+  <div class="grid">${cards}</div>
+</div>
+${detailModals}
+<footer class="footer">
+  <div class="footer-broker">${brokerNome}</div>
+  ${brokerTelefone ? `<div class="footer-contact">${brokerTelefone}</div>` : ''}
+  ${brokerEmail    ? `<div class="footer-email">${brokerEmail}</div>` : ''}
+  ${brokerEmpresa  ? `<div class="footer-empresa">${brokerEmpresa}</div>` : ''}
+  ${brokerCreci    ? `<div class="footer-creci">CRECI: ${brokerCreci}</div>` : ''}
 </footer>
-
 <script>
 const RATINGS_KEY = '${ratingsKey}';
 const PRINT_CARDS = ${JSON.stringify(printCardsData)};
@@ -261,195 +303,77 @@ const BROKER_EMPRESA = ${JSON.stringify(brokerEmpresa)};
 const BROKER_TELEFONE = ${JSON.stringify(brokerTelefone)};
 const BROKER_EMAIL = ${JSON.stringify(brokerEmail)};
 const CLIENT_NOME = ${JSON.stringify(client.nome)};
-
-function openDetail(id) {
-  document.getElementById('modal-' + id)?.classList.add('open');
-  document.body.style.overflow = 'hidden';
-}
-function closeDetail(id) {
-  document.getElementById('modal-' + id)?.classList.remove('open');
-  document.body.style.overflow = '';
-}
-document.addEventListener('keydown', function(e) {
-  if (document.getElementById('lightbox-overlay').classList.contains('lb-open')) return;
-  if (e.key === 'Escape') {
-    document.querySelectorAll('.modal-overlay.open').forEach(function(m) {
-      m.classList.remove('open');
-      document.body.style.overflow = '';
-    });
-  }
-});
-
-function saveRatings(ratings) {
-  try { localStorage.setItem(RATINGS_KEY, JSON.stringify(ratings)); } catch {}
-}
-function loadRatings() {
-  try { return JSON.parse(localStorage.getItem(RATINGS_KEY) || '{}'); } catch { return {}; }
-}
-function applyRatings() {
-  const saved = loadRatings();
-  document.querySelectorAll('.star').forEach(function(s) {
-    const id = s.dataset.id;
-    const val = parseInt(s.dataset.val);
-    const cur = saved[id] || 0;
-    s.style.color = cur >= val ? '#facc15' : '#3f3f46';
-  });
-}
-document.querySelectorAll('.star').forEach(function(star) {
-  star.addEventListener('click', function() {
-    const id = this.dataset.id;
-    const val = parseInt(this.dataset.val);
-    const ratings = loadRatings();
-    ratings[id] = val;
-    saveRatings(ratings);
-    applyRatings();
-  });
-});
+function openDetail(id){document.getElementById('modal-'+id)?.classList.add('open');document.body.style.overflow='hidden';}
+function closeDetail(id){document.getElementById('modal-'+id)?.classList.remove('open');document.body.style.overflow='';}
+document.addEventListener('keydown',e=>{if(e.key==='Escape'){document.querySelectorAll('.modal-overlay.open').forEach(m=>{m.classList.remove('open');document.body.style.overflow='';})}});
+function saveRatings(r){try{localStorage.setItem(RATINGS_KEY,JSON.stringify(r));}catch{}}
+function loadRatings(){try{return JSON.parse(localStorage.getItem(RATINGS_KEY)||'{}');}catch{return{};}}
+function applyRatings(){const s=loadRatings();document.querySelectorAll('.star').forEach(st=>{const id=st.dataset.id;const v=parseInt(st.dataset.val);st.style.color=(s[id]||0)>=v?'#facc15':'#3f3f46';});}
+document.querySelectorAll('.star').forEach(star=>{star.addEventListener('click',function(){const id=this.dataset.id;const v=parseInt(this.dataset.val);const r=loadRatings();r[id]=v;saveRatings(r);applyRatings();});});
 applyRatings();
-
-function printCard(id) {
-  const card = PRINT_CARDS.find(function(c){ return c.id === id; });
-  if (!card) return;
-
-  const now = new Date().toLocaleDateString('pt-BR');
-
-  const specsHtml = card.specs
-    .map(function(s) {
-      return '<div class="ps"><strong>' + s[0] + '</strong><span>' + s[1] + '</span></div>';
-    })
-    .join('');
-
-  const fotosPrincipal = card.imgSrc
-    ? '<img src="' + card.imgSrc + '" class="foto-principal" alt="">'
-    : '';
-
-  const fotosExtras = card.fotos.length > 1
-    ? '<div class="fotos-grid">' + card.fotos.slice(1).map(function(f) {
-        return '<img src="' + f + '" alt="">';
-      }).join('') + '</div>'
-    : '';
-
-  const htmlPdf = '<!DOCTYPE html>' +
-    '<html lang="pt-BR"><head>' +
-    '<meta charset="UTF-8">' +
-    '<title>Apresenta\u00e7\u00e3o - ' + card.titulo + '</title>' +
-    '<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">' +
-    '<style>' +
-    '*{box-sizing:border-box;margin:0;padding:0}' +
-    'body{font-family:Inter,sans-serif;background:#fff;color:#111;padding:0}' +
-    '@page{size:A4;margin:0}' +
-    '.pagina{width:210mm;min-height:297mm;padding:12mm 14mm;display:flex;flex-direction:column;page-break-after:always}' +
-    '.pagina:last-child{page-break-after:auto}' +
-    '.pdf-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:8mm;padding-bottom:5mm;border-bottom:2px solid #e50914}' +
-    '.pdf-broker{display:flex;flex-direction:column}' +
-    '.pdf-broker-name{font-size:15px;font-weight:700;color:#111}' +
-    '.pdf-broker-sub{font-size:11px;color:#666}' +
-    '.pdf-date{font-size:10px;color:#999}' +
-    'h2.pdf-title{font-size:22px;font-weight:700;color:#111;margin-bottom:3mm}' +
-    '.pdf-price{font-size:20px;font-weight:700;color:#e50914;margin-bottom:6mm}' +
-    '.foto-principal{width:100%;height:70mm;object-fit:cover;border-radius:4mm;margin-bottom:6mm}' +
-    '.fotos-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:3mm;margin-bottom:6mm}' +
-    '.fotos-grid img{width:100%;height:28mm;object-fit:cover;border-radius:2mm}' +
-    '.pdf-specs{display:grid;grid-template-columns:repeat(3,1fr);gap:3mm;margin-bottom:6mm}' +
-    '.ps{background:#f4f4f5;border-radius:2mm;padding:3mm 4mm}' +
-    '.ps strong{display:block;font-size:9px;color:#888;text-transform:uppercase;margin-bottom:1mm}' +
-    '.ps span{font-size:12px;font-weight:600;color:#111}' +
-    '.pdf-desc{font-size:11px;color:#555;line-height:1.6;margin-top:4mm}' +
-    '.pdf-footer{margin-top:auto;padding-top:5mm;border-top:1px solid #e4e4e7;display:flex;justify-content:space-between;align-items:center}' +
-    '.pdf-footer-broker{font-size:10px;color:#888}' +
-    '.pdf-footer-compat{background:rgba(229,9,20,.1);color:#e50914;border-radius:10px;padding:2px 10px;font-size:11px;font-weight:700}' +
-    '</style>' +
-    '</head><body>' +
-    '<div class="pagina">' +
-    '<div class="pdf-header">' +
-    '<div class="pdf-broker">' +
-    '<span class="pdf-broker-name">' + BROKER_NOME + '</span>' +
-    '<span class="pdf-broker-sub">' + BROKER_EMPRESA + (BROKER_EMPRESA && BROKER_TELEFONE ? ' \u00b7 ' : '') + BROKER_TELEFONE + '</span>' +
-    '</div>' +
-    '<span class="pdf-date">Gerado em ' + now + '</span>' +
-    '</div>' +
-    '<h2 class="pdf-title">' + card.titulo + '</h2>' +
-    '<div class="pdf-price">R\u00a0' + Number(card.preco).toLocaleString('pt-BR', { minimumFractionDigits: 2 }) + '</div>' +
-    fotosPrincipal +
-    '<div class="pdf-specs">' + specsHtml + '</div>' +
-    (card.descricao ? '<p class="pdf-desc">' + card.descricao + '</p>' : '') +
-    '<div class="pdf-footer">' +
-    '<span class="pdf-footer-broker">' + BROKER_EMAIL + '</span>' +
-    '<span class="pdf-footer-compat">' + card.compat + '% compat\u00edvel</span>' +
-    '</div>' +
-    '</div>' +
-    (fotosExtras ? '<div class="pagina">' +
-    '<div class="pdf-header">' +
-    '<span class="pdf-broker-name">' + BROKER_NOME + '</span>' +
-    '</div>' +
-    '<h3 style="font-size:16px;font-weight:700;margin-bottom:5mm">Galeria de fotos</h3>' +
-    fotosExtras +
-    '</div>' : '') +
-    '</body></html>';
-
-  const w = window.open('', '_blank');
-  if (!w) return;
-  w.document.write(htmlPdf);
-  w.document.close();
-  w.focus();
-  setTimeout(function() { w.print(); }, 800);
+function printCard(id){
+  const card=PRINT_CARDS.find(c=>c.id===id);
+  if(!card)return;
+  const now=new Date().toLocaleDateString('pt-BR');
+  const specsHtml=card.specs.map(s=>'<div class="ps"><strong>'+s[0]+'</strong><span>'+s[1]+'</span></div>').join('');
+  const fotosPrincipal=card.imgSrc?'<img src="'+card.imgSrc+'" class="foto-principal" alt="">' :'';
+  const fotosExtras=card.fotos.length>1?'<div class="fotos-grid">'+card.fotos.slice(1).map(f=>'<img src="'+f+'" alt="">').join('')+'</div>':'';
+  const htmlPdf='<!DOCTYPE html><html lang="pt-BR"><head><meta charset="UTF-8"><title>'+card.titulo+'</title>'+
+    '<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">'+
+    '<style>*{box-sizing:border-box;margin:0;padding:0}body{font-family:Inter,sans-serif;background:#fff;color:#111}'+
+    '@page{size:A4;margin:0}.pagina{width:210mm;min-height:297mm;padding:12mm 14mm;display:flex;flex-direction:column;page-break-after:always}.pagina:last-child{page-break-after:auto}'+
+    '.cabecalho{background:#e50914;color:#fff;border-radius:12px;padding:18px 22px;display:flex;justify-content:space-between;align-items:center;margin-bottom:16px}'+
+    '.cab-titulo{font-size:11px;font-weight:600;letter-spacing:.12em;text-transform:uppercase;opacity:.85;margin-bottom:4px}'+
+    '.cab-bairro{font-size:26px;font-weight:700;line-height:1.1}.cab-para-label{font-size:10px;opacity:.75;text-align:right;margin-bottom:3px}.cab-para-nome{font-size:16px;font-weight:700;text-align:right}'+
+    '.corretor-box{background:#f8f8f8;border-radius:10px;padding:14px 18px;display:flex;justify-content:space-between;align-items:center;margin-bottom:16px}'+
+    '.corretor-label{font-size:9px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:#888;margin-bottom:6px}'+
+    '.corretor-nome{font-size:18px;font-weight:700;color:#111;margin-bottom:2px}.corretor-empresa{font-size:12px;color:#555;margin-bottom:4px}.corretor-contatos{font-size:12px;color:#333}'+
+    '.compat-box{text-align:center;background:#e50914;color:#fff;border-radius:10px;padding:12px 20px;min-width:110px}'+
+    '.compat-num{font-size:32px;font-weight:700;line-height:1}.compat-label{font-size:9px;font-weight:600;letter-spacing:.1em;text-transform:uppercase;opacity:.85;margin-top:2px}'+
+    '.preco-row{display:flex;justify-content:space-between;align-items:center;margin-bottom:14px}.preco{font-size:28px;font-weight:700;color:#e50914}.titulo-imovel{font-size:14px;font-weight:600;color:#333}'+
+    '.foto-principal{width:100%;max-height:200px;object-fit:cover;border-radius:10px;margin-bottom:14px}'+
+    '.specs-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:14px}'+
+    '.ps{background:#f8f8f8;border-radius:8px;padding:8px 10px}.ps strong{display:block;font-size:8px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:#888;margin-bottom:3px}.ps span{font-size:13px;font-weight:600;color:#111}'+
+    '.fotos-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin-bottom:14px}.fotos-grid img{width:100%;height:90px;object-fit:cover;border-radius:8px}'+
+    '.descricao{font-size:12px;color:#444;line-height:1.6;border-left:3px solid #e50914;padding-left:10px;margin-bottom:14px}'+
+    '.rodape{margin-top:auto;padding-top:12px;border-top:1px solid #eee;display:flex;justify-content:space-between;align-items:center;font-size:10px;color:#888}.rodape-marca{font-size:13px;font-weight:700;color:#e50914}'+
+    '.p2-atendimento{background:#f8f8f8;border-radius:10px;padding:18px 22px;margin-bottom:20px}'+
+    '.p2-at-label{font-size:9px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:#888;margin-bottom:10px}.p2-at-nome{font-size:18px;font-weight:700;color:#111;margin-bottom:4px}.p2-at-contato{font-size:13px;color:#333;margin-bottom:2px}.p2-nota{font-size:11px;color:#888;line-height:1.6;margin-top:20px}'+
+    '@media print{button{display:none!important}}</style></head><body>'+
+    '<div class="pagina">'+
+    '<div class="cabecalho"><div><div class="cab-titulo">Apresenta\u00e7\u00e3o de Im\u00f3vel</div><div class="cab-bairro">'+(card.bairro||card.titulo)+'</div></div>'+
+    '<div><div class="cab-para-label">Para:</div><div class="cab-para-nome">'+CLIENT_NOME+'</div></div></div>'+
+    '<div class="corretor-box"><div><div class="corretor-label">Corretor Respons\u00e1vel</div>'+
+    '<div class="corretor-nome">'+BROKER_NOME+'</div>'+(BROKER_EMPRESA?'<div class="corretor-empresa">'+BROKER_EMPRESA+'</div>':'')+
+    '<div class="corretor-contatos">'+(BROKER_EMAIL?BROKER_EMAIL+'<br>':'')+(BROKER_TELEFONE?BROKER_TELEFONE:'')+'</div></div>'+
+    '<div class="compat-box"><div class="compat-num">'+card.cp+'%</div><div class="compat-label">Compatibilidade</div></div></div>'+
+    '<div class="preco-row"><div class="preco">R\u00a0'+card.preco+'</div><div class="titulo-imovel">'+card.titulo+'</div></div>'+
+    fotosPrincipal+
+    '<div class="specs-grid">'+specsHtml+'</div>'+
+    (card.descricao?'<div class="descricao">'+card.descricao+'</div>':'')+
+    '<div class="rodape"><div><div class="rodape-marca">'+BROKER_NOME+'</div>'+(BROKER_TELEFONE?'<div>'+BROKER_TELEFONE+'</div>':'')+' </div><div>'+now+'</div></div>'+
+    '</div>'+
+    '<div class="pagina">'+
+    '<div class="cabecalho"><div><div class="cab-titulo">Detalhes do Im\u00f3vel</div><div class="cab-bairro">'+card.titulo+'</div></div>'+
+    '<div><div class="cab-para-label">Para:</div><div class="cab-para-nome">'+CLIENT_NOME+'</div></div></div>'+
+    (card.fotos.length>1?fotosExtras:'')+
+    '<div class="p2-atendimento"><div class="p2-at-label">Atendimento</div><div class="p2-at-nome">'+BROKER_NOME+'</div>'+
+    (BROKER_TELEFONE?'<div class="p2-at-contato">Contato: '+BROKER_TELEFONE+(BROKER_EMPRESA?' | '+BROKER_EMPRESA:'')+'</div>':'')+
+    '<div class="p2-nota">Documento gerado para apresenta\u00e7\u00e3o do im\u00f3vel ao cliente.</div></div>'+
+    '<div class="rodape"><div><div class="rodape-marca">'+BROKER_NOME+'</div></div><div>'+now+'</div></div>'+
+    '</div></body></html>';
+  const blob=new Blob([htmlPdf],{type:'text/html;charset=utf-8'});
+  const url=URL.createObjectURL(blob);
+  const w=window.open(url,'_blank');
+  if(w){w.addEventListener('load',function(){setTimeout(function(){w.print();},600)});}
+  setTimeout(function(){URL.revokeObjectURL(url);},120000);
 }
-
-/* ── LIGHTBOX ────────────────────────────────────────────────────────────── */
-const LB_CATALOG = ${JSON.stringify(sorted.map(p => ({ id: p.id, fotos: p.fotos || [] })))};
-let lbPhotos = [];
-let lbIndex  = 0;
-let lbStartX = 0;
-
-function openLightbox(propId, idx) {
-  const entry = LB_CATALOG.find(function(p){ return p.id === propId; });
-  if (!entry || !entry.fotos.length) return;
-  lbPhotos = entry.fotos;
-  lbIndex  = idx || 0;
-  lbRender();
-  document.getElementById('lightbox-overlay').classList.add('lb-open');
-  document.body.style.overflow = 'hidden';
-}
-function closeLightbox() {
-  document.getElementById('lightbox-overlay').classList.remove('lb-open');
-  document.body.style.overflow = '';
-  lbPhotos = [];
-}
-function lbRender() {
-  const img = document.getElementById('lb-img');
-  img.style.opacity = '0';
-  img.src = lbPhotos[lbIndex];
-  img.onload = function(){ img.style.opacity = '1'; };
-  document.getElementById('lb-counter').textContent =
-    'Foto ' + (lbIndex + 1) + ' de ' + lbPhotos.length;
-  document.getElementById('lb-prev').style.display = lbPhotos.length > 1 ? '' : 'none';
-  document.getElementById('lb-next').style.display = lbPhotos.length > 1 ? '' : 'none';
-}
-function lbNav(dir) {
-  lbIndex = (lbIndex + dir + lbPhotos.length) % lbPhotos.length;
-  lbRender();
-}
-document.addEventListener('keydown', function(e) {
-  if (!document.getElementById('lightbox-overlay').classList.contains('lb-open')) return;
-  if (e.key === 'ArrowLeft')  lbNav(-1);
-  if (e.key === 'ArrowRight') lbNav(1);
-  if (e.key === 'Escape')     closeLightbox();
-});
-document.getElementById('lightbox-overlay').addEventListener('touchstart', function(e) {
-  lbStartX = e.changedTouches[0].clientX;
-}, { passive: true });
-document.getElementById('lightbox-overlay').addEventListener('touchend', function(e) {
-  const dx = e.changedTouches[0].clientX - lbStartX;
-  if (Math.abs(dx) > 40) lbNav(dx < 0 ? 1 : -1);
-});
-document.getElementById('lightbox-overlay').addEventListener('click', function(e) {
-  if (e.target === document.getElementById('lightbox-overlay')) closeLightbox();
-});
 <\/script>
 </body>
 </html>`;
 
   const blob = new Blob([html], { type: 'text/html;charset=utf-8' });
-  const url  = URL.createObjectURL(blob);
+  const url = URL.createObjectURL(blob);
   window.open(url, '_blank');
+  setTimeout(() => URL.revokeObjectURL(url), 120000);
 }
