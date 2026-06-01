@@ -21,15 +21,11 @@ export function generateClientCatalog(client: Client, broker: Broker): void {
     (a, b) => calculateCompatibility(client, b) - calculateCompatibility(client, a)
   );
 
-  const brokerAny = broker as Record<string, unknown>;
-  const brokerNome =
-    (brokerAny['nomeExibicao'] as string) ||
-    (brokerAny['nome_exibicao'] as string) ||
-    broker.nome ||
-    'Seu corretor';
-  const brokerEmpresa = (brokerAny['empresa'] as string) || '';
-  const brokerTelefone = (brokerAny['telefone'] as string) || broker.telefone || '';
-  const brokerEmail = (brokerAny['email'] as string) || '';
+  // Campos diretos da interface Broker — sem cast
+  const brokerNome = broker.nomeExibicao || broker.nome_exibicao || broker.nome || 'Seu corretor';
+  const brokerEmpresa = broker.empresa || '';
+  const brokerTelefone = broker.telefone || '';
+  const brokerEmail = broker.email || '';
 
   const topProp = sorted[0];
   const cpTop = calculateCompatibility(client, topProp);
