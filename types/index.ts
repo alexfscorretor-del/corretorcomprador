@@ -54,6 +54,7 @@ export interface Broker {
   email?: string;
   telefone?: string;
   empresa?: string;
+  creci?: string;
   ativo?: boolean;
   plano?: string;
 }
