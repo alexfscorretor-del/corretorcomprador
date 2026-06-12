@@ -63,10 +63,16 @@ export function generateClientCatalog(client: Client, broker: Broker): void {
         p.quartos ?? 0
       } qtos • ${p.vagas ?? 0} vaga(s)</p>
         <div class="stars-row" data-id="${p.id}">${stars}</div>
-        <button class="btn-detail" onclick="openDetail('${p.id}')">
-          <svg class="btn-detail-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M15 3h6v6h-2V6.41l-8.29 8.3-1.42-1.42 8.3-8.29H15V3Z"></path><path d="M5 5h7v2H7v10h10v-5h2v7H5V5Z"></path></svg>
-          Ver detalhes
-        </button>
+        <div class="card-actions">
+          <button class="btn-detail" onclick="openDetail('${p.id}')">
+            <svg class="btn-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M15 3h6v6h-2V6.41l-8.29 8.3-1.42-1.42 8.3-8.29H15V3Z"></path><path d="M5 5h7v2H7v10h10v-5h2v7H5V5Z"></path></svg>
+            Ver detalhes
+          </button>
+          <button class="btn-pdf-card" onclick="printSingleProperty('${p.id}')">
+            <svg class="btn-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M19 8H5c-1.66 0-3 1.34-3 3v6h4v4h12v-4h4v-6c0-1.66-1.34-3-3-3zm-3 11H8v-5h8v5zm3-7c-.55 0-1-.45-1-1s.45-1 1-1 1 .45 1 1-.45 1-1 1zm-1-9H6v4h12V3z"/></svg>
+            PDF
+          </button>
+        </div>
       </div>
     </div>`;
     })
@@ -137,6 +143,11 @@ export function generateClientCatalog(client: Client, broker: Broker): void {
     })
     .join('');
 
+  // Serializa cada imóvel individualmente para a função printSingleProperty
+  const propertiesJsonStr = btoa(
+    unescape(encodeURIComponent(JSON.stringify(sorted)))
+  );
+
   const html = `<!DOCTYPE html>
 <html lang="pt-BR">
 <head>
@@ -197,9 +208,14 @@ ${topImg ? `.hero::before{content:'';position:absolute;inset:0;background:url('$
 .card-price{font-size:20px;font-weight:800;color:#ef4444;margin-bottom:6px;line-height:1.25}
 .card-meta{font-size:12px;color:#a1a1aa;margin-bottom:10px;line-height:1.45}
 .stars-row{display:flex;align-items:center;gap:3px;margin:8px 0 14px;user-select:none}
-.btn-detail{width:100%;display:flex;align-items:center;justify-content:center;gap:8px;padding:11px 14px;border-radius:14px;border:0;background:#e50914;color:#fff;font-size:13px;font-weight:700;cursor:pointer;transition:background .2s,transform .2s}
+
+/* CARD ACTIONS — dois botões lado a lado */
+.card-actions{display:flex;gap:8px;flex-wrap:wrap}
+.btn-detail{flex:1;display:flex;align-items:center;justify-content:center;gap:6px;padding:11px 10px;border-radius:14px;border:0;background:#e50914;color:#fff;font-size:13px;font-weight:700;cursor:pointer;transition:background .2s,transform .2s;min-width:0}
 .btn-detail:hover{background:#b91c1c;transform:translateY(-1px)}
-.btn-detail-icon{width:15px;height:15px;fill:currentColor;flex:0 0 auto}
+.btn-pdf-card{display:flex;align-items:center;justify-content:center;gap:6px;padding:11px 14px;border-radius:14px;border:1px solid rgba(255,255,255,.18);background:rgba(255,255,255,.08);color:#e4e4e7;font-size:13px;font-weight:700;cursor:pointer;transition:background .2s,border-color .2s,transform .2s;white-space:nowrap}
+.btn-pdf-card:hover{background:rgba(255,255,255,.15);border-color:rgba(255,255,255,.3);transform:translateY(-1px)}
+.btn-icon{width:15px;height:15px;fill:currentColor;flex:0 0 auto}
 
 /* MODAL */
 .modal-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.85);z-index:999;overflow-y:auto;padding:20px}
@@ -224,11 +240,30 @@ ${topImg ? `.hero::before{content:'';position:absolute;inset:0;background:url('$
 .footer-email{font-size:12px;color:#a1a1aa;margin-top:4px}
 .footer-empresa{font-size:12px;color:#71717a;margin-top:3px;letter-spacing:.04em;text-transform:uppercase}
 
+/* PRINT: PDF individual por imóvel */
+@media print {
+  body > *:not(#print-single-overlay){display:none!important}
+  #print-single-overlay{display:block!important;position:static!important;background:#fff!important;color:#111!important;padding:32px!important;font-family:'Inter',sans-serif}
+  .print-prop-title{font-size:24px;font-weight:700;margin-bottom:4px}
+  .print-prop-price{font-size:20px;font-weight:700;color:#e50914;margin-bottom:12px}
+  .print-prop-badge{display:inline-block;background:#e50914;color:#fff;border-radius:8px;padding:3px 10px;font-size:12px;font-weight:700;margin-bottom:12px}
+  .print-prop-photos{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:16px}
+  .print-prop-photos img{width:100%;height:140px;object-fit:cover;border-radius:6px}
+  .print-specs-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin-bottom:12px}
+  .print-spec strong{display:block;font-size:9px;color:#71717a;text-transform:uppercase}
+  .print-spec span{font-size:13px}
+  .print-desc{font-size:12px;color:#555;line-height:1.6;border-left:3px solid #e50914;padding-left:10px;margin-top:8px}
+  .print-broker-footer{margin-top:24px;border-top:1px solid #eee;padding-top:12px;font-size:12px;color:#555}
+  .print-broker-name{font-size:18px;font-weight:700;color:#e50914}
+}
+
 @media(max-width:700px){
   .hero-inner{flex-direction:column;align-items:flex-start}
   .hero-right{text-align:left;align-items:flex-start;min-width:unset;max-width:unset}
   .hero-feat-name{max-width:none}
   .dspecs-grid{grid-template-columns:repeat(2,1fr)}
+  .card-actions{flex-direction:column}
+  .btn-detail,.btn-pdf-card{width:100%}
 }
 </style>
 </head>
@@ -280,6 +315,9 @@ ${topImg ? `.hero::before{content:'';position:absolute;inset:0;background:url('$
 
 ${detailModals}
 
+<!-- Overlay oculto para impressão de imóvel individual -->
+<div id="print-single-overlay" style="display:none"></div>
+
 <footer class="footer">
   <div class="footer-broker">${brokerNome}</div>
   ${brokerTelefone ? `<div class="footer-contact">${brokerTelefone}</div>` : ''}
@@ -291,6 +329,7 @@ ${detailModals}
 const RATINGS_KEY = '${ratingsKey}';
 const CLIENT_DATA = JSON.parse(decodeURIComponent(escape(atob('${clientDataStr}'))));
 const BROKER_DATA = JSON.parse(decodeURIComponent(escape(atob('${brokerDataStr}'))));
+const ALL_PROPERTIES = JSON.parse(decodeURIComponent(escape(atob('${propertiesJsonStr}'))));
 
 function openDetail(id) {
   document.getElementById('modal-' + id)?.classList.add('open');
@@ -335,6 +374,71 @@ document.querySelectorAll('.star').forEach(star => {
   });
 });
 applyRatings();
+
+function printSingleProperty(id) {
+  const p = ALL_PROPERTIES.find(function(prop) { return prop.id === id; });
+  if (!p) return;
+
+  const compat = CLIENT_DATA.properties
+    ? (function() {
+        // Calcula compatibilidade a partir do badge já renderizado no card
+        var badge = document.querySelector('.card[data-id="' + id + '"] .compat-badge');
+        return badge ? badge.textContent.replace('% Compatível','').trim() : '';
+      })()
+    : '';
+
+  var fotos = p.fotos || [];
+  var fotosHtml = fotos.length
+    ? '<div class="print-prop-photos">' + fotos.map(function(f){ return '<img src="' + f + '" alt="">'; }).join('') + '</div>'
+    : '';
+
+  var specs = [
+    ['Tipo', p.tipoImovel || '-'],
+    ['Bairro', p.bairro || '-'],
+    ['Área', (p.tamanho || '?') + 'm²'],
+    ['Quartos', p.quartos != null ? p.quartos : '-'],
+    ['Suítes', p.suites != null ? p.suites : '-'],
+    ['Banheiros', p.banheiros != null ? p.banheiros : '-'],
+    ['Vagas', p.vagas != null ? p.vagas : '-'],
+    ['Andar', p.andar != null ? p.andar : '-'],
+    ['Condomínio', p.condominio ? 'R$ ' + Number(p.condominio).toLocaleString('pt-BR',{minimumFractionDigits:2}) : '-'],
+    ['Prédio Novo', p.predioNovo || '-'],
+    ['Reformado', p.reformado || '-'],
+    ['Mobiliado', p.mobiliado ? 'Sim' : 'Não'],
+    ['Varanda', p.varanda ? 'Sim' : 'Não'],
+    ['Área Lazer', p.areaLazer ? 'Sim' : 'Não'],
+    ['Pet', p.aceitaPet ? 'Sim' : 'Não'],
+    ['Financiamento', p.aceitaFinanciamento || '-'],
+  ];
+
+  var specsHtml = '<div class="print-specs-grid">' + specs.map(function(s){
+    return '<div class="print-spec"><strong>' + s[0] + '</strong><span>' + s[1] + '</span></div>';
+  }).join('') + '</div>';
+
+  var descHtml = p.descricao ? '<div class="print-desc">' + p.descricao + '</div>' : '';
+  var linkHtml = p.link ? '<p style="margin-top:8px;font-size:12px">Anúncio: <a href="' + p.link + '">' + p.link + '</a></p>' : '';
+
+  var brokerFooter = '<div class="print-broker-footer"><div class="print-broker-name">' + BROKER_DATA.nome + '</div>'
+    + (BROKER_DATA.telefone ? '<div>' + BROKER_DATA.telefone + '</div>' : '')
+    + (BROKER_DATA.email ? '<div>' + BROKER_DATA.email + '</div>' : '')
+    + (BROKER_DATA.empresa ? '<div>' + BROKER_DATA.empresa + '</div>' : '')
+    + '</div>';
+
+  var overlay = document.getElementById('print-single-overlay');
+  overlay.innerHTML =
+    (compat ? '<div class="print-prop-badge">' + compat + '% Compatível</div>' : '') +
+    '<div class="print-prop-title">' + p.titulo + '</div>' +
+    '<div class="print-prop-price">R$ ' + Number(p.preco).toLocaleString('pt-BR',{minimumFractionDigits:2}) + '</div>' +
+    fotosHtml +
+    specsHtml +
+    descHtml +
+    linkHtml +
+    brokerFooter;
+
+  overlay.style.display = 'block';
+  window.print();
+  overlay.style.display = 'none';
+}
 <\/script>
 </body>
 </html>`;
