@@ -11,6 +11,10 @@ export function generateClientCatalog(client: Client, broker: Broker): void {
     (a, b) => calculateCompatibility(client, b) - calculateCompatibility(client, a)
   );
 
+  const clientDataStr = btoa(
+    unescape(encodeURIComponent(JSON.stringify({ ...client, properties: sorted })))
+  );
+  const brokerDataStr = btoa(unescape(encodeURIComponent(JSON.stringify(broker))));
   const ratingsKey = `ratings_${client.id}`;
 
   const topProp = sorted[0];
@@ -27,7 +31,6 @@ export function generateClientCatalog(client: Client, broker: Broker): void {
   const brokerTelefone = (broker as any).telefone || broker.telefone || '';
   const brokerEmail = (broker as any).email || '';
 
-  /* ─── CARDS ─────────────────────────────────────────────────────────── */
   const cards = sorted
     .map((p) => {
       const cp = calculateCompatibility(client, p);
@@ -37,132 +40,109 @@ export function generateClientCatalog(client: Client, broker: Broker): void {
           (n) =>
             `<span class="star" data-id="${p.id}" data-val="${n}" style="color:${
               (p.rating || 0) >= n ? '#facc15' : '#3f3f46'
-            };cursor:pointer;font-size:20px;">&#9733;</span>`
+            };font-size:20px;line-height:1;">★</span>`
         )
         .join('');
 
       return `
-<div class="card" data-id="${p.id}" onclick="openDetail('${p.id}')" style="cursor:pointer">
-  ${
-          <div style="position:relative">
-imgSrc
-      ? `<img src="${imgSrc}" class="card-img" alt="${p.titulo}" loading="lazy">`
-      : '<div class="card-img-placeholder"></div>'
-  }
-  <div class="card-body">
-        <span class="compat-badge" style="position:absolute;top:10px;right:10px;z-index:2">${cp}% Compat\u00edvel</span>
-      div>
-    <h3 class="card-title">${p.titulo}</h3>
-          <p style="font-size:18px;font-weight:700;color:#E50914;margin:8px 0">R$ ${Number(p.preco).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
-      <p style="font-size:13px;color:#a1a1aa;margin-bottom:10px">${p.bairro || ''} • ${p.tamanho || '?'}m² • ${p.quartos ?? 0} qtos • ${p.vagas ?? 0} vaga(s)</p>
-    <div class="stars-row" data-id="${p.id}">${stars}</div>
-    ${p.descricao ? `<p class="card-desc">${p.descricao}</p>` : ''}
-    <div class="card-actions">
-      <button class="btn-detail" onclick="openDetail('${p.id}')">Ver detalhes</button>
-      <button class="btn-pdf" onclick="printCard('${p.id}')">&#x1F4C4; PDF</button>
-    </div>
-  </div>
-</div>`;
+    <div class="card" data-id="${p.id}">
+      <div class="card-media">
+        ${
+          imgSrc
+            ? `<img src="${imgSrc}" class="card-img" alt="${p.titulo}" loading="lazy">`
+            : '<div class="card-img-placeholder"></div>'
+        }
+        <span class="compat-badge">${cp}% Compatível</span>
+      </div>
+      <div class="card-body">
+        <h3 class="card-title">${p.titulo}</h3>
+        <p class="card-price">R$ ${Number(p.preco).toLocaleString('pt-BR', {
+          minimumFractionDigits: 2,
+        })}</p>
+        <p class="card-meta">${p.bairro || '-'} • ${p.tamanho || '?'}m² • ${
+        p.quartos ?? 0
+      } qtos • ${p.vagas ?? 0} vaga(s)</p>
+        <div class="stars-row" data-id="${p.id}">${stars}</div>
+        <button class="btn-detail" onclick="openDetail('${p.id}')">
+          <svg class="btn-detail-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M15 3h6v6h-2V6.41l-8.29 8.3-1.42-1.42 8.3-8.29H15V3Z"></path><path d="M5 5h7v2H7v10h10v-5h2v7H5V5Z"></path></svg>
+          Ver detalhes
+        </button>
+      </div>
+    </div>`;
     })
     .join('');
 
-  /* ─── MODAIS ─────────────────────────────────────────────────────────── */
   const detailModals = sorted
     .map((p) => {
       const cp = calculateCompatibility(client, p);
       const fotos = p.fotos || [];
       const fotosH = fotos.length
-        ? `<div class="detail-photos">${fotos.map((f) => `<img src="${f}" alt="" loading="lazy">`).join('')}</div>`
+        ? `<div class="detail-photos">${fotos
+            .map((f) => `<img src="${f}" alt="" loading="lazy">`)
+            .join('')}</div>`
         : '';
 
       const specs: [string, string | number][] = [
         ['Tipo', p.tipoImovel || '-'],
         ['Bairro', p.bairro || '-'],
-        ['\u00c1rea', (p.tamanho || '?') + 'm\u00b2'],
+        ['Área', (p.tamanho || '?') + 'm²'],
         ['Quartos', p.quartos ?? '-'],
-        ['Su\u00edtes', p.suites ?? '-'],
+        ['Suítes', p.suites ?? '-'],
         ['Banheiros', p.banheiros ?? '-'],
         ['Vagas', p.vagas ?? '-'],
         ['Andar', p.andar ?? '-'],
-        ['Condom\u00ednio', p.condominio ? 'R$ ' + Number(p.condominio).toLocaleString('pt-BR', { minimumFractionDigits: 2 }) : '-'],
-        ['Pr\u00e9dio Novo', p.predioNovo || '-'],
+        [
+          'Condomínio',
+          p.condominio
+            ? 'R$ ' +
+              Number(p.condominio).toLocaleString('pt-BR', {
+                minimumFractionDigits: 2,
+              })
+            : '-',
+        ],
+        ['Prédio Novo', p.predioNovo || '-'],
         ['Reformado', p.reformado || '-'],
-        ['Mobiliado', p.mobiliado ? 'Sim' : 'N\u00e3o'],
-        ['Varanda', p.varanda ? 'Sim' : 'N\u00e3o'],
-        ['\u00c1rea Lazer', p.areaLazer ? 'Sim' : 'N\u00e3o'],
-        ['Pet', p.aceitaPet ? 'Sim' : 'N\u00e3o'],
+        ['Mobiliado', p.mobiliado ? 'Sim' : 'Não'],
+        ['Varanda', p.varanda ? 'Sim' : 'Não'],
+        ['Área Lazer', p.areaLazer ? 'Sim' : 'Não'],
+        ['Pet', p.aceitaPet ? 'Sim' : 'Não'],
         ['Financiamento', p.aceitaFinanciamento || '-'],
       ];
 
       const specsH = specs
-        .map(([l, v]) => `<div class="dspec"><strong>${l}</strong><span>${v}</span></div>`)
+        .map(
+          ([l, v]) => `<div class="dspec"><strong>${l}</strong><span>${v}</span></div>`
+        )
         .join('');
 
       return `
-<div class="modal-overlay" id="modal-${p.id}" onclick="if(event.target===this)closeDetail('${p.id}')">
-  <div class="modal-box">
-    <div class="modal-header">
-      <button class="modal-close" onclick="closeDetail('${p.id}')">&#x2715;</button>
-      <button class="modal-pdf-btn" onclick="printCard('${p.id}')">&#x1F4C4; Gerar PDF</button>
-    </div>
-    <div class="modal-compat">${cp}% compat\u00edvel</div>
-    <h2 class="modal-title">${p.titulo}</h2>
-    <div class="modal-price">R$\u00a0${Number(p.preco).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</div>
-    ${fotosH}
-    <div class="dspecs-grid">${specsH}</div>
-    ${p.descricao ? `<div class="modal-desc">${p.descricao}</div>` : ''}
-    ${p.link ? `<p style="margin:12px 0"><a href="${p.link}" target="_blank" rel="noopener noreferrer" style="color:#e50914">Ver an\u00fancio &#x2197;</a></p>` : ''}
-  </div>
-</div>`;
+    <div class="modal-overlay" id="modal-${p.id}" onclick="if(event.target===this)closeDetail('${p.id}')">
+      <div class="modal-box">
+        <button class="modal-close" onclick="closeDetail('${p.id}')">✕</button>
+        <div class="modal-compat">${cp}% compatível</div>
+        <h2 class="modal-title">${p.titulo}</h2>
+        <div class="modal-price">R$ ${Number(p.preco).toLocaleString('pt-BR', {
+          minimumFractionDigits: 2,
+        })}</div>
+        ${fotosH}
+        <div class="dspecs-grid">${specsH}</div>
+        ${p.descricao ? `<div class="modal-desc">${p.descricao}</div>` : ''}
+        ${
+          p.link
+            ? `<p style="margin:12px 0"><a href="${p.link}" target="_blank" rel="noopener noreferrer" style="color:#e50914">Ver anúncio ↗</a></p>`
+            : ''
+        }
+      </div>
+    </div>`;
     })
     .join('');
 
-  /* ─── PRINT CARDS DATA ────────────────────────────────────────────────── */
-  const printCardsData = sorted.map((p) => {
-    const cp = calculateCompatibility(client, p);
-    const imgSrc = p.fotos?.[0] || '';
-    const fotos = p.fotos || [];
-
-    const specs: [string, string | number][] = [
-      ['TIPO', p.tipoImovel || '-'],
-      ['BAIRRO', p.bairro || '-'],
-      ['\u00c1REA', (p.tamanho || '?') + 'm\u00b2'],
-      ['QUARTOS', p.quartos ?? '-'],
-      ['SU\u00cdTES', p.suites ?? '-'],
-      ['BANHEIROS', p.banheiros ?? '-'],
-      ['VAGAS', p.vagas ?? '-'],
-      ['ANDAR', p.andar ?? '-'],
-      ['CONDOM\u00cdNIO', p.condominio ? 'R$ ' + Number(p.condominio).toLocaleString('pt-BR', { minimumFractionDigits: 2 }) : '-'],
-      ['PR\u00c9DIO NOVO', p.predioNovo || '-'],
-      ['REFORMADO', p.reformado || '-'],
-      ['MOBILIADO', p.mobiliado ? 'Sim' : 'N\u00e3o'],
-      ['VARANDA', p.varanda ? 'Sim' : 'N\u00e3o'],
-      ['\u00c1REA LAZER', p.areaLazer ? 'Sim' : 'N\u00e3o'],
-      ['PET', p.aceitaPet ? 'Sim' : 'N\u00e3o'],
-      ['FINANCIAMENTO', p.aceitaFinanciamento || '-'],
-    ];
-
-    return {
-      id: p.id,
-      titulo: p.titulo,
-      bairro: p.bairro || '',
-      preco: Number(p.preco).toLocaleString('pt-BR', { minimumFractionDigits: 2 }),
-      cp,
-      imgSrc,
-      fotos,
-      specs,
-      descricao: p.descricao || '',
-      link: p.link || '',
-    };
-  });
-
-  /* ─── HTML ───────────────────────────────────────────────────────────── */
   const html = `<!DOCTYPE html>
 <html lang="pt-BR">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Im\u00f3veis para ${client.nome}</title>
+<title>Imóveis para ${client.nome}</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,600;1,400&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -181,12 +161,13 @@ ${topImg ? `.hero::before{content:'';position:absolute;inset:0;background:url('$
 .hero-meta{display:flex;flex-wrap:wrap;gap:18px;margin-top:14px;font-size:14px;font-weight:600;color:#f4f4f5}
 .hero-meta .compat{color:#4ade80}
 .hero-actions{display:flex;gap:12px;flex-wrap:wrap;margin-top:26px}
-.hero-btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;padding:13px 18px;border-radius:14px;text-decoration:none;font-size:14px;font-weight:700;transition:.2s;cursor:pointer;border:none}
+.hero-btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;padding:13px 18px;border-radius:14px;text-decoration:none;font-size:14px;font-weight:700;transition:.2s}
 .hero-btn-primary{background:#fff;color:#111}
 .hero-btn-primary:hover{background:#e4e4e7}
 .hero-btn-secondary{background:rgba(255,255,255,.12);border:1px solid rgba(255,255,255,.12);color:#fff}
 .hero-btn-secondary:hover{background:rgba(255,255,255,.18)}
 .hero-client-line{margin-top:12px;font-size:14px;color:#e4e4e7;font-weight:600}
+
 .hero-right{min-width:260px;max-width:340px;text-align:right;display:flex;flex-direction:column;align-items:flex-end;gap:4px}
 .hero-broker-label{font-size:11px;color:#71717a;letter-spacing:.06em;text-transform:uppercase;margin-bottom:8px}
 .hero-broker-name{font-family:'Cormorant Garamond',serif;font-size:clamp(28px,4vw,44px);font-weight:600;color:#e50914;font-style:italic;line-height:1.05}
@@ -205,35 +186,27 @@ ${topImg ? `.hero::before{content:'';position:absolute;inset:0;background:url('$
 .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(280px,100%),1fr));gap:20px}
 
 /* CARD */
-.card{background:#18181b;border:1px solid #27272a;border-radius:16px;overflow:hidden;transition:transform .2s,box-shadow .2s}
-.card:hover{transform:translateY(-3px);box-shadow:0 12px 32px rgba(0,0,0,.4)}
-.card-img{width:100%;height:190px;object-fit:cover}
-.card-img-placeholder{width:100%;height:190px;background:#27272a}
-.card-body{padding:16px}
-.card-top{display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;gap:10px}
-.compat-badge{background:rgba(229,9,20,.15);color:#ff4d57;border:1px solid rgba(229,9,20,.3);border-radius:20px;padding:3px 10px;font-size:11px;font-weight:700}
-.price-sm{font-size:13px;font-weight:700;color:#fff}
-.card-title{font-size:15px;font-weight:700;color:#fff;margin-bottom:3px;line-height:1.3}
-.card-bairro{font-size:12px;color:#a1a1aa;margin-bottom:10px}
-.card-specs{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:10px}
-.card-specs span{background:#27272a;border-radius:6px;padding:3px 8px;font-size:11px;color:#d4d4d8}
-.stars-row{margin:8px 0;user-select:none}
-.card-desc{font-size:12px;color:#a1a1aa;margin-top:8px;line-height:1.5;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden}
-.card-actions{display:flex;gap:8px;margin-top:12px}
-.btn-detail{flex:1;padding:10px;border-radius:10px;border:1px solid #3f3f46;background:transparent;color:#e4e4e7;font-size:12px;font-weight:700;cursor:pointer;transition:all .2s}
-.btn-detail:hover{background:#27272a;color:#fff;border-color:#52525b}
-.btn-pdf{padding:10px 14px;border-radius:10px;border:1px solid rgba(229,9,20,.4);background:rgba(229,9,20,.1);color:#ff4d57;font-size:12px;font-weight:700;cursor:pointer;transition:all .2s;white-space:nowrap}
-.btn-pdf:hover{background:rgba(229,9,20,.2);border-color:#e50914}
+.card{background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.1);border-radius:16px;padding:16px;transition:transform .2s,box-shadow .2s,border-color .2s;backdrop-filter:blur(20px)}
+.card:hover{transform:translateY(-5px);box-shadow:0 20px 25px -5px rgba(0,0,0,.35);border-color:rgba(255,255,255,.16)}
+.card-media{position:relative;width:100%;aspect-ratio:16/9;border-radius:14px;overflow:hidden;background:#1f2937;margin-bottom:16px}
+.card-img{width:100%;height:100%;object-fit:cover;display:block}
+.card-img-placeholder{width:100%;height:100%;background:#27272a}
+.compat-badge{position:absolute;top:8px;right:8px;background:rgba(229,9,20,.9);color:#fff;border-radius:12px;padding:4px 10px;font-size:12px;font-weight:700;line-height:1.2;box-shadow:0 8px 20px rgba(0,0,0,.25)}
+.card-body{padding:0}
+.card-title{font-size:16px;font-weight:700;color:#fff;margin-bottom:4px;line-height:1.35;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.card-price{font-size:20px;font-weight:800;color:#ef4444;margin-bottom:6px;line-height:1.25}
+.card-meta{font-size:12px;color:#a1a1aa;margin-bottom:10px;line-height:1.45}
+.stars-row{display:flex;align-items:center;gap:3px;margin:8px 0 14px;user-select:none}
+.btn-detail{width:100%;display:flex;align-items:center;justify-content:center;gap:8px;padding:11px 14px;border-radius:14px;border:0;background:#e50914;color:#fff;font-size:13px;font-weight:700;cursor:pointer;transition:background .2s,transform .2s}
+.btn-detail:hover{background:#b91c1c;transform:translateY(-1px)}
+.btn-detail-icon{width:15px;height:15px;fill:currentColor;flex:0 0 auto}
 
 /* MODAL */
 .modal-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.85);z-index:999;overflow-y:auto;padding:20px}
 .modal-overlay.open{display:flex;align-items:flex-start;justify-content:center}
 .modal-box{background:#18181b;border:1px solid #27272a;border-radius:20px;width:100%;max-width:700px;padding:28px;position:relative;margin:auto}
-.modal-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:12px}
-.modal-close{background:#27272a;border:none;color:#a1a1aa;width:32px;height:32px;border-radius:50%;cursor:pointer;font-size:16px;display:flex;align-items:center;justify-content:center}
+.modal-close{position:absolute;top:16px;right:16px;background:#27272a;border:none;color:#a1a1aa;width:32px;height:32px;border-radius:50%;cursor:pointer;font-size:16px;display:flex;align-items:center;justify-content:center}
 .modal-close:hover{background:#3f3f46;color:#fff}
-.modal-pdf-btn{display:inline-flex;align-items:center;gap:6px;padding:8px 14px;border-radius:10px;border:1px solid rgba(229,9,20,.4);background:rgba(229,9,20,.1);color:#ff4d57;font-size:12px;font-weight:700;cursor:pointer;transition:all .2s}
-.modal-pdf-btn:hover{background:rgba(229,9,20,.2);border-color:#e50914}
 .modal-compat{display:inline-block;background:rgba(229,9,20,.15);color:#ff4d57;border:1px solid rgba(229,9,20,.3);border-radius:20px;padding:4px 12px;font-size:12px;font-weight:700;margin-bottom:10px}
 .modal-title{font-size:22px;font-weight:700;color:#fff;margin-bottom:6px}
 .modal-price{font-size:26px;font-weight:700;color:#e50914;margin-bottom:16px}
@@ -243,21 +216,6 @@ ${topImg ? `.hero::before{content:'';position:absolute;inset:0;background:url('$
 .dspec strong{display:block;font-size:10px;color:#71717a;text-transform:uppercase;margin-bottom:2px}
 .dspec span{font-size:13px;color:#e4e4e7}
 .modal-desc{font-size:13px;color:#a1a1aa;line-height:1.6;border-left:3px solid #e50914;padding-left:12px}
-
-/* PRINT */
-@media print{
-  body{background:#fff;color:#111}
-  .hero,.section-title,.hero-actions,.stars-row,.card-actions,.modal-overlay,footer{display:none!important}
-  .grid{display:block}
-  .card{break-inside:avoid;border:1px solid #ddd;background:#fff;margin-bottom:20px;page-break-inside:avoid}
-  .card-img{max-height:220px}
-  .compat-badge{background:#fef2f2;color:#b91c1c;border-color:#fca5a5}
-  .card-title,.price-sm{color:#111}
-  .card-bairro,.card-desc{color:#555}
-  .card-specs span{background:#f3f4f6;color:#374151}
-  .print-only{display:block!important}
-}
-.print-only{display:none}
 
 /* FOOTER */
 .footer{border-top:1px solid #1c1c1e;padding:40px 24px;text-align:center}
@@ -279,29 +237,34 @@ ${topImg ? `.hero::before{content:'';position:absolute;inset:0;background:url('$
 <div class="hero">
   <div class="hero-inner">
     <div class="hero-left">
-      <p class="hero-greeting">Sele\u00e7\u00e3o de im\u00f3veis preparada para voc\u00ea</p>
+      <p class="hero-greeting">Seleção de imóveis preparada para você</p>
       <h1 class="hero-name">${topProp.titulo}</h1>
+
       <div class="hero-meta">
-        <span class="compat">${cpTop}% Compat\u00edvel</span>
+        <span class="compat">${cpTop}% Compatível</span>
         ${topProp.quartos != null ? `<span>${topProp.quartos} Quartos</span>` : ''}
         ${topProp.bairro ? `<span>${topProp.bairro}</span>` : ''}
       </div>
+
       <div class="hero-actions">
-        <button class="hero-btn hero-btn-primary" onclick="openDetail('${topProp.id}')">&#x25B6; Ver Detalhes</button>
-        <button class="hero-btn hero-btn-secondary" onclick="window.print()">&#x1F4C4; Imprimir / PDF</button>
+        <a href="javascript:void(0)" class="hero-btn hero-btn-primary" onclick="openDetail('${topProp.id}')">▶ Ver Detalhes</a>
+        <a href="javascript:void(0)" class="hero-btn hero-btn-secondary" onclick="window.print()">📄 PDF</a>
       </div>
+
       <div class="hero-client-line">Selecionados para ${client.nome}</div>
     </div>
+
     <div class="hero-right">
-      <div class="hero-broker-label">Corretor respons\u00e1vel</div>
+      <div class="hero-broker-label">Corretor responsável</div>
       <div class="hero-broker-name">${brokerNome}</div>
       ${brokerEmpresa ? `<div class="hero-broker-sub">${brokerEmpresa}</div>` : ''}
       ${brokerTelefone ? `<div class="hero-broker-phone">${brokerTelefone}</div>` : ''}
       ${brokerEmail ? `<div class="hero-broker-email">${brokerEmail}</div>` : ''}
+
       <div class="hero-compat">
         <div class="hero-compat-num">${cpTop}%</div>
         <div class="hero-compat-label">Compatibilidade</div>
-        <div class="hero-feat-title">Im\u00f3vel em destaque</div>
+        <div class="hero-feat-title">Imóvel em destaque</div>
         <div class="hero-feat-name">${topProp.titulo}</div>
       </div>
     </div>
@@ -309,7 +272,7 @@ ${topImg ? `.hero::before{content:'';position:absolute;inset:0;background:url('$
 </div>
 
 <div class="section">
-  <p class="section-title">Im\u00f3veis selecionados para voc\u00ea</p>
+  <p class="section-title">Imóveis selecionados para você</p>
   <div class="grid" id="cards-grid">
     ${cards}
   </div>
@@ -326,12 +289,8 @@ ${detailModals}
 
 <script>
 const RATINGS_KEY = '${ratingsKey}';
-const PRINT_CARDS = ${JSON.stringify(printCardsData)};
-const BROKER_NOME = ${JSON.stringify(brokerNome)};
-const BROKER_EMPRESA = ${JSON.stringify(brokerEmpresa)};
-const BROKER_TELEFONE = ${JSON.stringify(brokerTelefone)};
-const BROKER_EMAIL = ${JSON.stringify(brokerEmail)};
-const CLIENT_NOME = ${JSON.stringify(client.nome)};
+const CLIENT_DATA = JSON.parse(decodeURIComponent(escape(atob('${clientDataStr}'))));
+const BROKER_DATA = JSON.parse(decodeURIComponent(escape(atob('${brokerDataStr}'))));
 
 function openDetail(id) {
   document.getElementById('modal-' + id)?.classList.add('open');
@@ -376,172 +335,6 @@ document.querySelectorAll('.star').forEach(star => {
   });
 });
 applyRatings();
-
-function printCard(id) {
-  const card = PRINT_CARDS.find(c => c.id === id);
-  if (!card) return;
-
-  const now = new Date().toLocaleDateString('pt-BR');
-
-  const specsHtml = card.specs
-    .map(function(s) {
-      return '<div class="ps"><strong>' + s[0] + '</strong><span>' + s[1] + '</span></div>';
-    })
-    .join('');
-
-  const fotosPrincipal = card.imgSrc
-    ? '<img src="' + card.imgSrc + '" class="foto-principal" alt="">'
-    : '';
-
-  const fotosExtras = card.fotos.length > 1
-    ? '<div class="fotos-grid">' + card.fotos.slice(1).map(function(f) {
-        return '<img src="' + f + '" alt="">';
-      }).join('') + '</div>'
-    : '';
-
-  const htmlPdf = '<!DOCTYPE html>' +
-    '<html lang="pt-BR"><head>' +
-    '<meta charset="UTF-8">' +
-    '<title>Apresenta\u00e7\u00e3o - ' + card.titulo + '</title>' +
-    '<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">' +
-    '<style>' +
-    '*{box-sizing:border-box;margin:0;padding:0}' +
-    'body{font-family:Inter,sans-serif;background:#fff;color:#111;padding:0}' +
-    '@page{size:A4;margin:0}' +
-
-    /* ── PÁGINA 1 ── */
-    '.pagina{width:210mm;min-height:297mm;padding:12mm 14mm;display:flex;flex-direction:column;page-break-after:always}' +
-    '.pagina:last-child{page-break-after:auto}' +
-
-    /* cabeçalho vermelho */
-    '.cabecalho{background:#e50914;color:#fff;border-radius:12px;padding:18px 22px;display:flex;justify-content:space-between;align-items:center;margin-bottom:16px}' +
-    '.cab-titulo{font-size:11px;font-weight:600;letter-spacing:.12em;text-transform:uppercase;opacity:.85;margin-bottom:4px}' +
-    '.cab-bairro{font-size:26px;font-weight:700;line-height:1.1}' +
-    '.cab-para-label{font-size:10px;opacity:.75;text-align:right;margin-bottom:3px}' +
-    '.cab-para-nome{font-size:16px;font-weight:700;text-align:right}' +
-
-    /* seção corretor */
-    '.corretor-box{background:#f8f8f8;border-radius:10px;padding:14px 18px;display:flex;justify-content:space-between;align-items:center;margin-bottom:16px}' +
-    '.corretor-label{font-size:9px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:#888;margin-bottom:6px}' +
-    '.corretor-nome{font-size:18px;font-weight:700;color:#111;margin-bottom:2px}' +
-    '.corretor-empresa{font-size:12px;color:#555;margin-bottom:4px}' +
-    '.corretor-contatos{font-size:12px;color:#333}' +
-    '.compat-box{text-align:center;background:#e50914;color:#fff;border-radius:10px;padding:12px 20px;min-width:110px}' +
-    '.compat-num{font-size:32px;font-weight:700;line-height:1}' +
-    '.compat-label{font-size:9px;font-weight:600;letter-spacing:.1em;text-transform:uppercase;opacity:.85;margin-top:2px}' +
-
-    /* preço */
-    '.preco-row{display:flex;justify-content:space-between;align-items:center;margin-bottom:14px}' +
-    '.preco{font-size:28px;font-weight:700;color:#e50914}' +
-    '.titulo-imovel{font-size:14px;font-weight:600;color:#333}' +
-
-    /* foto principal */
-    '.foto-principal{width:100%;max-height:200px;object-fit:cover;border-radius:10px;margin-bottom:14px}' +
-
-    /* specs grid */
-    '.specs-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:14px}' +
-    '.ps{background:#f8f8f8;border-radius:8px;padding:8px 10px}' +
-    '.ps strong{display:block;font-size:8px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:#888;margin-bottom:3px}' +
-    '.ps span{font-size:13px;font-weight:600;color:#111}' +
-
-    /* fotos extras */
-    '.fotos-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin-bottom:14px}' +
-    '.fotos-grid img{width:100%;height:90px;object-fit:cover;border-radius:8px}' +
-
-    /* descrição */
-    '.descricao{font-size:12px;color:#444;line-height:1.6;border-left:3px solid #e50914;padding-left:10px;margin-bottom:14px}' +
-
-    /* rodapé p1 */
-    '.rodape{margin-top:auto;padding-top:12px;border-top:1px solid #eee;display:flex;justify-content:space-between;align-items:center;font-size:10px;color:#888}' +
-    '.rodape-marca{font-size:13px;font-weight:700;color:#e50914}' +
-
-    /* ── PÁGINA 2 ── */
-    '.p2-titulo{font-size:18px;font-weight:700;color:#111;margin-bottom:4px}' +
-    '.p2-sub{font-size:13px;color:#555;margin-bottom:20px}' +
-    '.p2-atendimento{background:#f8f8f8;border-radius:10px;padding:18px 22px;margin-bottom:20px}' +
-    '.p2-at-label{font-size:9px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:#888;margin-bottom:10px}' +
-    '.p2-at-nome{font-size:18px;font-weight:700;color:#111;margin-bottom:4px}' +
-    '.p2-at-contato{font-size:13px;color:#333;margin-bottom:2px}' +
-    '.p2-nota{font-size:11px;color:#888;line-height:1.6;margin-top:20px}' +
-    '@media print{button{display:none!important}}' +
-    '</style></head><body>' +
-
-    /* ══ PÁGINA 1 ══ */
-    '<div class="pagina">' +
-
-    '<div class="cabecalho">' +
-    '<div><div class="cab-titulo">Apresenta\u00e7\u00e3o de Im\u00f3vel</div>' +
-    '<div class="cab-bairro">' + (card.bairro || card.titulo) + '</div></div>' +
-    '<div><div class="cab-para-label">Para:</div>' +
-    '<div class="cab-para-nome">' + CLIENT_NOME + '</div></div>' +
-    '</div>' +
-
-    '<div class="corretor-box">' +
-    '<div><div class="corretor-label">Corretor Respons\u00e1vel</div>' +
-    '<div class="corretor-nome">' + BROKER_NOME + '</div>' +
-    (BROKER_EMPRESA ? '<div class="corretor-empresa">' + BROKER_EMPRESA + '</div>' : '') +
-    '<div class="corretor-contatos">' +
-    (BROKER_EMAIL ? BROKER_EMAIL + '<br>' : '') +
-    (BROKER_TELEFONE ? BROKER_TELEFONE : '') +
-    '</div></div>' +
-    '<div class="compat-box"><div class="compat-num">' + card.cp + '%</div>' +
-    '<div class="compat-label">Compatibilidade</div></div>' +
-    '</div>' +
-
-    '<div class="preco-row">' +
-    '<div class="preco">R$\u00a0' + card.preco + '</div>' +
-    '<div class="titulo-imovel">' + card.titulo + '</div>' +
-    '</div>' +
-
-    fotosPrincipal +
-
-    '<div class="specs-grid">' + specsHtml + '</div>' +
-
-    (card.descricao ? '<div class="descricao">' + card.descricao + '</div>' : '') +
-
-    '<div class="rodape">' +
-    '<div><div class="rodape-marca">' + BROKER_NOME + '</div>' +
-    (BROKER_TELEFONE ? '<div>' + BROKER_TELEFONE + '</div>' : '') + '</div>' +
-    '<div>' + now + '</div>' +
-    '</div>' +
-    '</div>' +
-
-    /* ══ PÁGINA 2 ══ */
-    '<div class="pagina">' +
-    '<div class="cabecalho">' +
-    '<div><div class="cab-titulo">Detalhes do Im\u00f3vel</div>' +
-    '<div class="cab-bairro">' + card.titulo + '</div></div>' +
-    '<div><div class="cab-para-label">Para:</div>' +
-    '<div class="cab-para-nome">' + CLIENT_NOME + '</div></div>' +
-    '</div>' +
-
-    (card.fotos.length > 1 ? fotosExtras : '') +
-
-    '<div class="p2-atendimento">' +
-    '<div class="p2-at-label">Atendimento</div>' +
-    '<div class="p2-at-nome">' + BROKER_NOME + '</div>' +
-    (BROKER_TELEFONE ? '<div class="p2-at-contato">Contato: ' + BROKER_TELEFONE + (BROKER_EMPRESA ? '\u00a0\u00a0|\u00a0\u00a0' + BROKER_EMPRESA : '') + '</div>' : '') +
-    '<div class="p2-nota">Documento gerado para apresenta\u00e7\u00e3o do im\u00f3vel ao cliente.</div>' +
-    '</div>' +
-
-    '<div class="rodape">' +
-    '<div><div class="rodape-marca">' + BROKER_NOME + '</div></div>' +
-    '<div>' + now + '</div>' +
-    '</div>' +
-    '</div>' +
-
-    '</body></html>';
-
-  const blob = new Blob([htmlPdf], { type: 'text/html;charset=utf-8' });
-  const url = URL.createObjectURL(blob);
-  const w = window.open(url, '_blank');
-  if (w) {
-    w.addEventListener('load', function() {
-      setTimeout(function() { w.print(); }, 600);
-    });
-  }
-  setTimeout(function() { URL.revokeObjectURL(url); }, 120000);
-}
 <\/script>
 </body>
 </html>`;
