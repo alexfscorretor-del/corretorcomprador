@@ -41,35 +41,33 @@ export function generateClientCatalog(client: Client, broker: Broker): void {
           (n) =>
             `<span class="star" data-id="${p.id}" data-val="${n}" style="color:${
               (p.rating || 0) >= n ? '#facc15' : '#3f3f46'
-            };cursor:pointer;font-size:20px;">★</span>`
+            };font-size:20px;line-height:1;">★</span>`
         )
         .join('');
 
       return `
     <div class="card" data-id="${p.id}">
-      ${
-        imgSrc
-          ? `<img src="${imgSrc}" class="card-img" alt="${p.titulo}" loading="lazy">`
-          : '<div class="card-img-placeholder"></div>'
-      }
+      <div class="card-media">
+        ${
+          imgSrc
+            ? `<img src="${imgSrc}" class="card-img" alt="${p.titulo}" loading="lazy">`
+            : '<div class="card-img-placeholder"></div>'
+        }
+        <span class="compat-badge">${cp}% Compatível</span>
+      </div>
       <div class="card-body">
-        <div class="card-top">
-          <span class="compat-badge">${cp}% Compatível</span>
-          <span class="price-sm">R$ ${Number(p.preco).toLocaleString('pt-BR', {
-            minimumFractionDigits: 2,
-          })}</span>
-        </div>
         <h3 class="card-title">${p.titulo}</h3>
-        <p class="card-bairro">${p.bairro || ''}</p>
-        <div class="card-specs">
-          ${p.quartos != null ? `<span>🛏 ${p.quartos} quartos</span>` : ''}
-          ${p.suites != null ? `<span>🚿 ${p.suites} suítes</span>` : ''}
-          ${p.vagas != null ? `<span>🚗 ${p.vagas} vagas</span>` : ''}
-          ${p.tamanho != null ? `<span>📐 ${p.tamanho}m²</span>` : ''}
-        </div>
+        <p class="card-price">R$ ${Number(p.preco).toLocaleString('pt-BR', {
+          minimumFractionDigits: 2,
+        })}</p>
+        <p class="card-meta">${p.bairro || '-'} • ${p.tamanho || '?'}m² • ${
+        p.quartos ?? 0
+      } qtos • ${p.vagas ?? 0} vaga(s)</p>
         <div class="stars-row" data-id="${p.id}">${stars}</div>
-        ${p.descricao ? `<p class="card-desc">${p.descricao}</p>` : ''}
-        <button class="btn-detail" onclick="openDetail('${p.id}')">Ver detalhes</button>
+        <button class="btn-detail" onclick="openDetail('${p.id}')">
+          <svg class="btn-detail-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M15 3h6v6h-2V6.41l-8.29 8.3-1.42-1.42 8.3-8.29H15V3Z"></path><path d="M5 5h7v2H7v10h10v-5h2v7H5V5Z"></path></svg>
+          Ver detalhes
+        </button>
       </div>
     </div>`;
     })
@@ -189,22 +187,20 @@ ${topImg ? `.hero::before{content:'';position:absolute;inset:0;background:url('$
 .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(280px,100%),1fr));gap:20px}
 
 /* CARD */
-.card{background:#18181b;border:1px solid #27272a;border-radius:16px;overflow:hidden;transition:transform .2s,box-shadow .2s}
-.card:hover{transform:translateY(-3px);box-shadow:0 12px 32px rgba(0,0,0,.4)}
-.card-img{width:100%;height:190px;object-fit:cover}
-.card-img-placeholder{width:100%;height:190px;background:#27272a}
-.card-body{padding:16px}
-.card-top{display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;gap:10px}
-.compat-badge{background:rgba(229,9,20,.15);color:#ff4d57;border:1px solid rgba(229,9,20,.3);border-radius:20px;padding:3px 10px;font-size:11px;font-weight:700}
-.price-sm{font-size:13px;font-weight:700;color:#fff}
-.card-title{font-size:15px;font-weight:700;color:#fff;margin-bottom:3px;line-height:1.3}
-.card-bairro{font-size:12px;color:#a1a1aa;margin-bottom:10px}
-.card-specs{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:10px}
-.card-specs span{background:#27272a;border-radius:6px;padding:3px 8px;font-size:11px;color:#d4d4d8}
-.stars-row{margin:8px 0;user-select:none}
-.card-desc{font-size:12px;color:#a1a1aa;margin-top:8px;line-height:1.5;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden}
-.btn-detail{margin-top:12px;width:100%;padding:10px;border-radius:10px;border:1px solid #3f3f46;background:transparent;color:#e4e4e7;font-size:12px;font-weight:700;cursor:pointer;transition:all .2s}
-.btn-detail:hover{background:#27272a;color:#fff;border-color:#52525b}
+.card{background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.1);border-radius:16px;padding:16px;transition:transform .2s,box-shadow .2s,border-color .2s;backdrop-filter:blur(20px)}
+.card:hover{transform:translateY(-5px);box-shadow:0 20px 25px -5px rgba(0,0,0,.35);border-color:rgba(255,255,255,.16)}
+.card-media{position:relative;width:100%;aspect-ratio:16/9;border-radius:14px;overflow:hidden;background:#1f2937;margin-bottom:16px}
+.card-img{width:100%;height:100%;object-fit:cover;display:block}
+.card-img-placeholder{width:100%;height:100%;background:#27272a}
+.compat-badge{position:absolute;top:8px;right:8px;background:rgba(229,9,20,.9);color:#fff;border-radius:12px;padding:4px 10px;font-size:12px;font-weight:700;line-height:1.2;box-shadow:0 8px 20px rgba(0,0,0,.25)}
+.card-body{padding:0}
+.card-title{font-size:16px;font-weight:700;color:#fff;margin-bottom:4px;line-height:1.35;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.card-price{font-size:20px;font-weight:800;color:#ef4444;margin-bottom:6px;line-height:1.25}
+.card-meta{font-size:12px;color:#a1a1aa;margin-bottom:10px;line-height:1.45}
+.stars-row{display:flex;align-items:center;gap:3px;margin:8px 0 14px;user-select:none}
+.btn-detail{width:100%;display:flex;align-items:center;justify-content:center;gap:8px;padding:11px 14px;border-radius:14px;border:0;background:#e50914;color:#fff;font-size:13px;font-weight:700;cursor:pointer;transition:background .2s,transform .2s}
+.btn-detail:hover{background:#b91c1c;transform:translateY(-1px)}
+.btn-detail-icon{width:15px;height:15px;fill:currentColor;flex:0 0 auto}
 
 /* MODAL */
 .modal-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.85);z-index:999;overflow-y:auto;padding:20px}
