@@ -35,6 +35,7 @@ export function generateClientCatalog(client: Client, broker: Broker): void {
     .map((p) => {
       const cp = calculateCompatibility(client, p);
       const imgSrc = p.fotos?.[0] || '';
+      const fotosCount = p.fotos?.length || 0;
       const stars = [1, 2, 3, 4, 5]
         .map(
           (n) =>
@@ -46,13 +47,15 @@ export function generateClientCatalog(client: Client, broker: Broker): void {
 
       return `
     <div class="card" data-id="${p.id}">
-      <div class="card-media">
+      <div class="card-media" onclick="openLightboxFromCard('${p.id}', 0)" style="cursor:zoom-in" title="Clique para ampliar fotos">
         ${
           imgSrc
             ? `<img src="${imgSrc}" class="card-img" alt="${p.titulo}" loading="lazy">`
             : '<div class="card-img-placeholder"></div>'
         }
         <span class="compat-badge">${cp}% Compatível</span>
+        ${fotosCount > 1 ? `<span class="fotos-badge">📷 ${fotosCount} fotos</span>` : ''}
+        <span class="zoom-hint">🔍 Ampliar</span>
       </div>
       <div class="card-body">
         <h3 class="card-title">${p.titulo}</h3>
@@ -82,12 +85,11 @@ export function generateClientCatalog(client: Client, broker: Broker): void {
     .map((p) => {
       const cp = calculateCompatibility(client, p);
       const fotos = p.fotos || [];
-      // Each thumbnail opens the lightbox at that index
       const fotosH = fotos.length
         ? `<div class="detail-photos">${fotos
             .map(
               (f, idx) =>
-                `<img src="${f}" alt="" loading="lazy" class="detail-thumb" onclick="openLightbox('${p.id}',${idx})" style="cursor:zoom-in">`
+                `<img src="${f}" alt="Foto ${idx + 1}" loading="lazy" class="detail-thumb" onclick="openLightbox('${p.id}',${idx})" style="cursor:zoom-in" title="Clique para ampliar">`
             )
             .join('')}</div>`
         : '';
@@ -125,7 +127,6 @@ export function generateClientCatalog(client: Client, broker: Broker): void {
         )
         .join('');
 
-      // Inject photos array into the page so JS lightbox can access them
       const fotosJson = JSON.stringify(fotos).replace(/\\/g, '\\\\').replace(/'/g, "\\'");
       const safeId = p.id.replace(/-/g, '_');
 
@@ -203,9 +204,13 @@ ${topImg ? `.hero::before{content:'';position:absolute;inset:0;background:url('$
 .card{background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.1);border-radius:16px;padding:16px;transition:transform .2s,box-shadow .2s,border-color .2s;backdrop-filter:blur(20px)}
 .card:hover{transform:translateY(-5px);box-shadow:0 20px 25px -5px rgba(0,0,0,.35);border-color:rgba(255,255,255,.16)}
 .card-media{position:relative;width:100%;aspect-ratio:16/9;border-radius:14px;overflow:hidden;background:#1f2937;margin-bottom:16px}
-.card-img{width:100%;height:100%;object-fit:cover;display:block}
+.card-img{width:100%;height:100%;object-fit:cover;display:block;transition:transform .3s}
+.card-media:hover .card-img{transform:scale(1.04)}
 .card-img-placeholder{width:100%;height:100%;background:#27272a}
 .compat-badge{position:absolute;top:8px;right:8px;background:rgba(229,9,20,.9);color:#fff;border-radius:12px;padding:4px 10px;font-size:12px;font-weight:700;line-height:1.2;box-shadow:0 8px 20px rgba(0,0,0,.25)}
+.fotos-badge{position:absolute;top:8px;left:8px;background:rgba(0,0,0,.65);color:#fff;border-radius:10px;padding:3px 9px;font-size:11px;font-weight:600}
+.zoom-hint{position:absolute;bottom:10px;left:50%;transform:translateX(-50%);background:rgba(0,0,0,.7);color:#fff;border-radius:10px;padding:5px 12px;font-size:12px;font-weight:600;opacity:0;transition:opacity .2s;pointer-events:none;white-space:nowrap}
+.card-media:hover .zoom-hint{opacity:1}
 .card-body{padding:0}
 .card-title{font-size:16px;font-weight:700;color:#fff;margin-bottom:4px;line-height:1.35;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
 .card-price{font-size:20px;font-weight:800;color:#ef4444;margin-bottom:6px;line-height:1.25}
@@ -228,10 +233,10 @@ ${topImg ? `.hero::before{content:'';position:absolute;inset:0;background:url('$
 .modal-title{font-size:22px;font-weight:700;color:#fff;margin-bottom:6px}
 .modal-price{font-size:26px;font-weight:700;color:#e50914;margin-bottom:16px}
 
-/* FOTOS NO MODAL - miniaturas clicáveis */
-.detail-photos{display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:8px;margin-bottom:16px}
-.detail-thumb{width:100%;height:130px;object-fit:cover;border-radius:10px;cursor:zoom-in;transition:opacity .2s,transform .15s;border:2px solid transparent}
-.detail-thumb:hover{opacity:.82;transform:scale(1.03);border-color:#e50914}
+/* FOTOS NO MODAL */
+.detail-photos{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:8px;margin-bottom:16px}
+.detail-thumb{width:100%;height:120px;object-fit:cover;border-radius:10px;cursor:zoom-in;transition:opacity .2s,transform .15s,border-color .15s;border:2px solid transparent}
+.detail-thumb:hover{opacity:.85;transform:scale(1.04);border-color:#e50914}
 
 .dspecs-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:16px}
 .dspec strong{display:block;font-size:10px;color:#71717a;text-transform:uppercase;margin-bottom:2px}
@@ -239,21 +244,21 @@ ${topImg ? `.hero::before{content:'';position:absolute;inset:0;background:url('$
 .modal-desc{font-size:13px;color:#a1a1aa;line-height:1.6;border-left:3px solid #e50914;padding-left:12px}
 
 /* LIGHTBOX */
-#lightbox{display:none;position:fixed;inset:0;z-index:10000;background:rgba(0,0,0,.97);flex-direction:column;align-items:center;justify-content:center}
+#lightbox{display:none;position:fixed;inset:0;z-index:10000;background:rgba(0,0,0,.96);flex-direction:column;align-items:center;justify-content:center}
 #lightbox.lb-open{display:flex}
-#lb-img-wrap{display:flex;align-items:center;justify-content:center;flex:1;width:100%;padding:0 70px}
-#lb-img{max-width:100%;max-height:80vh;object-fit:contain;border-radius:8px;display:block;user-select:none}
-#lb-counter{color:#a1a1aa;font-size:13px;font-weight:600;margin-bottom:10px;letter-spacing:.04em;flex-shrink:0}
-#lb-close{position:absolute;top:16px;right:20px;background:rgba(255,255,255,.12);border:none;color:#fff;font-size:20px;width:40px;height:40px;border-radius:50%;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:background .2s;z-index:2}
-#lb-close:hover{background:rgba(255,255,255,.25)}
-#lb-prev,#lb-next{position:absolute;top:50%;transform:translateY(-50%);background:rgba(255,255,255,.12);border:none;color:#fff;font-size:28px;width:50px;height:50px;border-radius:50%;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:background .2s;z-index:2}
-#lb-prev{left:14px}
-#lb-next{right:14px}
-#lb-prev:hover,#lb-next:hover{background:rgba(255,255,255,.28)}
-#lb-thumbs{display:flex;gap:8px;padding:12px 16px;overflow-x:auto;max-width:100vw;flex-shrink:0}
+#lb-top{display:flex;align-items:center;justify-content:space-between;width:100%;padding:12px 20px;flex-shrink:0}
+#lb-counter{color:#a1a1aa;font-size:14px;font-weight:600;letter-spacing:.04em}
+#lb-close{background:rgba(255,255,255,.12);border:none;color:#fff;font-size:18px;width:40px;height:40px;border-radius:50%;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:background .2s;flex-shrink:0}
+#lb-close:hover{background:rgba(255,255,255,.28)}
+#lb-main{display:flex;align-items:center;justify-content:center;flex:1;width:100%;min-height:0;gap:0}
+#lb-prev,#lb-next{background:rgba(255,255,255,.1);border:none;color:#fff;font-size:28px;width:54px;height:54px;border-radius:50%;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:background .2s;flex-shrink:0;margin:0 12px}
+#lb-prev:hover,#lb-next:hover{background:rgba(255,255,255,.25)}
+#lb-img-wrap{display:flex;align-items:center;justify-content:center;flex:1;min-width:0;padding:0 8px}
+#lb-img{max-width:100%;max-height:75vh;object-fit:contain;border-radius:8px;display:block;user-select:none;box-shadow:0 8px 40px rgba(0,0,0,.6)}
+#lb-thumbs{display:flex;gap:8px;padding:14px 20px;overflow-x:auto;max-width:100vw;flex-shrink:0;scroll-behavior:smooth}
 #lb-thumbs::-webkit-scrollbar{height:4px}
 #lb-thumbs::-webkit-scrollbar-thumb{background:#444;border-radius:2px}
-#lb-thumbs img{width:68px;height:50px;object-fit:cover;border-radius:6px;cursor:pointer;opacity:.5;border:2px solid transparent;transition:opacity .15s,border-color .15s;flex-shrink:0}
+#lb-thumbs img{width:70px;height:52px;object-fit:cover;border-radius:7px;cursor:pointer;opacity:.45;border:2px solid transparent;transition:opacity .15s,border-color .15s;flex-shrink:0}
 #lb-thumbs img.lb-active{opacity:1;border-color:#e50914}
 
 /* FOOTER */
@@ -286,9 +291,7 @@ ${topImg ? `.hero::before{content:'';position:absolute;inset:0;background:url('$
   .dspecs-grid{grid-template-columns:repeat(2,1fr)}
   .card-actions{flex-direction:column}
   .btn-detail,.btn-pdf-card{width:100%}
-  #lb-img-wrap{padding:0 56px}
-  #lb-prev{left:6px}
-  #lb-next{right:6px}
+  #lb-prev,#lb-next{width:42px;height:42px;font-size:22px;margin:0 6px}
 }
 </style>
 </head>
@@ -296,13 +299,17 @@ ${topImg ? `.hero::before{content:'';position:absolute;inset:0;background:url('$
 
 <!-- LIGHTBOX GLOBAL -->
 <div id="lightbox" role="dialog" aria-modal="true" aria-label="Visualizar foto ampliada">
-  <button id="lb-close" aria-label="Fechar lightbox">✕</button>
-  <div id="lb-counter"></div>
-  <button id="lb-prev" aria-label="Foto anterior">&#8592;</button>
-  <div id="lb-img-wrap">
-    <img id="lb-img" src="" alt="Foto ampliada">
+  <div id="lb-top">
+    <div id="lb-counter"></div>
+    <button id="lb-close" aria-label="Fechar lightbox">✕</button>
   </div>
-  <button id="lb-next" aria-label="Próxima foto">&#8594;</button>
+  <div id="lb-main">
+    <button id="lb-prev" aria-label="Foto anterior">&#8592;</button>
+    <div id="lb-img-wrap">
+      <img id="lb-img" src="" alt="Foto ampliada">
+    </div>
+    <button id="lb-next" aria-label="Próxima foto">&#8594;</button>
+  </div>
   <div id="lb-thumbs"></div>
 </div>
 
@@ -362,7 +369,7 @@ var CLIENT_DATA = JSON.parse(decodeURIComponent(escape(atob('${clientDataStr}'))
 var BROKER_DATA = JSON.parse(decodeURIComponent(escape(atob('${brokerDataStr}'))));
 var ALL_PROPERTIES = JSON.parse(decodeURIComponent(escape(atob('${propertiesJsonStr}'))));
 
-// ---- MODAL ----
+// ---- MODAL DE DETALHES ----
 function openDetail(id) {
   var el = document.getElementById('modal-' + id);
   if (el) { el.classList.add('open'); document.body.style.overflow = 'hidden'; }
@@ -377,27 +384,38 @@ var _lbFotos = [];
 var _lbIdx = 0;
 
 function openLightbox(propId, startIdx) {
-  var key = '__fotos_' + propId.replace(/-/g, '_');
-  _lbFotos = window[key] || [];
+  var safeId = propId.replace(/-/g, '_');
+  _lbFotos = window['__fotos_' + safeId] || [];
   if (!_lbFotos.length) return;
   _lbIdx = startIdx || 0;
   _lbRender();
-  document.getElementById('lightbox').classList.add('lb-open');
+  var lb = document.getElementById('lightbox');
+  lb.classList.add('lb-open');
+  document.body.style.overflow = 'hidden';
+}
+
+function openLightboxFromCard(propId, startIdx) {
+  var safeId = propId.replace(/-/g, '_');
+  var fotos = window['__fotos_' + safeId] || [];
+  if (!fotos.length) return;
+  openLightbox(propId, startIdx);
 }
 
 function closeLightbox() {
   document.getElementById('lightbox').classList.remove('lb-open');
+  document.body.style.overflow = '';
 }
 
 function _lbRender() {
-  document.getElementById('lb-img').src = _lbFotos[_lbIdx];
+  var img = document.getElementById('lb-img');
+  img.src = _lbFotos[_lbIdx];
   document.getElementById('lb-counter').textContent = (_lbIdx + 1) + ' / ' + _lbFotos.length;
   var thumbsEl = document.getElementById('lb-thumbs');
   thumbsEl.innerHTML = _lbFotos.map(function(f, i) {
     return '<img src="' + f + '" alt="Foto ' + (i+1) + '" class="' + (i === _lbIdx ? 'lb-active' : '') + '" onclick="_lbGoTo(' + i + ')">';
   }).join('');
   var active = thumbsEl.querySelectorAll('img')[_lbIdx];
-  if (active) active.scrollIntoView({ block: 'nearest', inline: 'center' });
+  if (active) active.scrollIntoView({ block: 'nearest', inline: 'center', behavior: 'smooth' });
 }
 
 function _lbNav(dir) {
@@ -412,7 +430,10 @@ document.getElementById('lb-close').addEventListener('click', closeLightbox);
 document.getElementById('lb-prev').addEventListener('click', function() { _lbNav(-1); });
 document.getElementById('lb-next').addEventListener('click', function() { _lbNav(1); });
 document.getElementById('lightbox').addEventListener('click', function(e) {
-  if (e.target === this || e.target === document.getElementById('lb-img-wrap')) closeLightbox();
+  if (e.target === this) closeLightbox();
+});
+document.getElementById('lb-img-wrap').addEventListener('click', function(e) {
+  if (e.target === this) closeLightbox();
 });
 
 document.addEventListener('keydown', function(e) {
@@ -421,17 +442,18 @@ document.addEventListener('keydown', function(e) {
     if (e.key === 'Escape') { closeLightbox(); return; }
     if (e.key === 'ArrowLeft') { _lbNav(-1); return; }
     if (e.key === 'ArrowRight') { _lbNav(1); return; }
-  }
-  if (e.key === 'Escape') {
-    document.querySelectorAll('.modal-overlay.open').forEach(function(m) {
-      m.classList.remove('open'); document.body.style.overflow = '';
-    });
+  } else {
+    if (e.key === 'Escape') {
+      document.querySelectorAll('.modal-overlay.open').forEach(function(m) {
+        m.classList.remove('open'); document.body.style.overflow = '';
+      });
+    }
   }
 });
 
 // ---- ESTRELAS ----
-function saveRatings(r) { try { localStorage.setItem(RATINGS_KEY, JSON.stringify(r)); } catch {} }
-function loadRatings() { try { return JSON.parse(localStorage.getItem(RATINGS_KEY) || '{}'); } catch { return {}; } }
+function saveRatings(r) { try { localStorage.setItem(RATINGS_KEY, JSON.stringify(r)); } catch(e) {} }
+function loadRatings() { try { return JSON.parse(localStorage.getItem(RATINGS_KEY) || '{}'); } catch(e) { return {}; } }
 function applyRatings() {
   var saved = loadRatings();
   document.querySelectorAll('.star').forEach(function(s) {
@@ -455,7 +477,17 @@ function printSingleProperty(id) {
   var compat = badge ? badge.textContent.replace('% Compatível','').trim() : '';
   var fotos = p.fotos || [];
   var fotosHtml = fotos.length ? '<div class="print-prop-photos">' + fotos.map(function(f){ return '<img src="' + f + '" alt="">'; }).join('') + '</div>' : '';
-  var specs = [['Tipo',p.tipoImovel||'-'],['Bairro',p.bairro||'-'],['Área',(p.tamanho||'?')+'m²'],['Quartos',p.quartos!=null?p.quartos:'-'],['Suítes',p.suites!=null?p.suites:'-'],['Banheiros',p.banheiros!=null?p.banheiros:'-'],['Vagas',p.vagas!=null?p.vagas:'-'],['Andar',p.andar!=null?p.andar:'-'],['Condomínio',p.condominio?'R$ '+Number(p.condominio).toLocaleString('pt-BR',{minimumFractionDigits:2}):'-'],['Prédio Novo',p.predioNovo||'-'],['Reformado',p.reformado||'-'],['Mobiliado',p.mobiliado?'Sim':'Não'],['Varanda',p.varanda?'Sim':'Não'],['Área Lazer',p.areaLazer?'Sim':'Não'],['Pet',p.aceitaPet?'Sim':'Não'],['Financiamento',p.aceitaFinanciamento||'-']];
+  var specs = [
+    ['Tipo',p.tipoImovel||'-'],['Bairro',p.bairro||'-'],['Área',(p.tamanho||'?')+'m²'],
+    ['Quartos',p.quartos!=null?p.quartos:'-'],['Suítes',p.suites!=null?p.suites:'-'],
+    ['Banheiros',p.banheiros!=null?p.banheiros:'-'],['Vagas',p.vagas!=null?p.vagas:'-'],
+    ['Andar',p.andar!=null?p.andar:'-'],
+    ['Condomínio',p.condominio?'R$ '+Number(p.condominio).toLocaleString('pt-BR',{minimumFractionDigits:2}):'-'],
+    ['Prédio Novo',p.predioNovo||'-'],['Reformado',p.reformado||'-'],
+    ['Mobiliado',p.mobiliado?'Sim':'Não'],['Varanda',p.varanda?'Sim':'Não'],
+    ['Área Lazer',p.areaLazer?'Sim':'Não'],['Pet',p.aceitaPet?'Sim':'Não'],
+    ['Financiamento',p.aceitaFinanciamento||'-']
+  ];
   var specsHtml = '<div class="print-specs-grid">' + specs.map(function(s){ return '<div class="print-spec"><strong>'+s[0]+'</strong><span>'+s[1]+'</span></div>'; }).join('') + '</div>';
   var descHtml = p.descricao ? '<div class="print-desc">'+p.descricao+'</div>' : '';
   var linkHtml = p.link ? '<p style="margin-top:8px;font-size:12px">Anúncio: <a href="'+p.link+'">'+p.link+'</a></p>' : '';
