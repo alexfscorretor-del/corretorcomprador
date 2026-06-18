@@ -31,6 +31,16 @@ export function generateClientCatalog(client: Client, broker: Broker): void {
   const brokerTelefone = (broker as any).telefone || broker.telefone || '';
   const brokerEmail = (broker as any).email || '';
 
+  // ── Bloco de dados das fotos (injetado UMA VEZ antes de tudo) ──
+  const fotosDataScript = sorted
+    .map((p) => {
+      const fotos = p.fotos || [];
+      const fotosJson = JSON.stringify(fotos).replace(/\\/g, '\\\\').replace(/'/g, "\\'");
+      const safeId = p.id.replace(/-/g, '_');
+      return `window.__fotos_${safeId} = ${fotosJson};`;
+    })
+    .join('\n');
+
   const cards = sorted
     .map((p) => {
       const cp = calculateCompatibility(client, p);
@@ -127,9 +137,6 @@ export function generateClientCatalog(client: Client, broker: Broker): void {
         )
         .join('');
 
-      const fotosJson = JSON.stringify(fotos).replace(/\\/g, '\\\\').replace(/'/g, "\\'");
-      const safeId = p.id.replace(/-/g, '_');
-
       return `
     <div class="modal-overlay" id="modal-${p.id}" onclick="if(event.target===this)closeDetail('${p.id}')">
       <div class="modal-box">
@@ -148,8 +155,7 @@ export function generateClientCatalog(client: Client, broker: Broker): void {
             : ''
         }
       </div>
-    </div>
-    <script>window.__fotos_${safeId} = ${fotosJson};<\/script>`;
+    </div>`;
     })
     .join('');
 
@@ -297,6 +303,11 @@ ${topImg ? `.hero::before{content:'';position:absolute;inset:0;background:url('$
 </head>
 <body>
 
+<!-- DADOS DAS FOTOS — carregados antes de qualquer card -->
+<script>
+${fotosDataScript}
+</script>
+
 <!-- LIGHTBOX GLOBAL -->
 <div id="lightbox" role="dialog" aria-modal="true" aria-label="Visualizar foto ampliada">
   <div id="lb-top">
@@ -395,10 +406,7 @@ function openLightbox(propId, startIdx) {
 }
 
 function openLightboxFromCard(propId, startIdx) {
-  var safeId = propId.replace(/-/g, '_');
-  var fotos = window['__fotos_' + safeId] || [];
-  if (!fotos.length) return;
-  openLightbox(propId, startIdx);
+  openLightbox(propId, startIdx || 0);
 }
 
 function closeLightbox() {
