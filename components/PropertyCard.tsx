@@ -16,36 +16,34 @@ export default function PropertyCard({ property, compatibility, onEdit, onDelete
   const [showDetail, setShowDetail] = useState(false);
   const [photoIdx, setPhotoIdx] = useState<number | null>(null);
   const r = property.rating || 0;
-  const fotos = property.fotos ?? [];
+  const fotos = property.fotos || [];
   const totalFotos = fotos.length;
 
-  const openLightbox = useCallback((idx: number) => {
-    if (totalFotos === 0) return;
-    setPhotoIdx(idx);
+  const prev = useCallback((e?: React.MouseEvent) => {
+    e?.stopPropagation();
+    setPhotoIdx(i => (i === null ? null : (i - 1 + totalFotos) % totalFotos));
   }, [totalFotos]);
 
-  const closeLightbox = useCallback(() => setPhotoIdx(null), []);
-
-  const prevPhoto = useCallback((e?: React.MouseEvent) => {
+  const next = useCallback((e?: React.MouseEvent) => {
     e?.stopPropagation();
-    setPhotoIdx(prev => prev === null ? null : (prev - 1 + totalFotos) % totalFotos);
-  }, [totalFotos]);
-
-  const nextPhoto = useCallback((e?: React.MouseEvent) => {
-    e?.stopPropagation();
-    setPhotoIdx(prev => prev === null ? null : (prev + 1) % totalFotos);
+    setPhotoIdx(i => (i === null ? null : (i + 1) % totalFotos));
   }, [totalFotos]);
 
   useEffect(() => {
     if (photoIdx === null) return;
-    const handleKey = (e: KeyboardEvent) => {
-      if (e.key === 'ArrowLeft') prevPhoto();
-      else if (e.key === 'ArrowRight') nextPhoto();
-      else if (e.key === 'Escape') closeLightbox();
+    const handler = (e: KeyboardEvent) => {
+      if (e.key === 'ArrowLeft') prev();
+      else if (e.key === 'ArrowRight') next();
+      else if (e.key === 'Escape') setPhotoIdx(null);
     };
-    window.addEventListener('keydown', handleKey);
-    return () => window.removeEventListener('keydown', handleKey);
-  }, [photoIdx, prevPhoto, nextPhoto, closeLightbox]);
+    window.addEventListener('keydown', handler);
+    return () => window.removeEventListener('keydown', handler);
+  }, [photoIdx, prev, next]);
+
+  useEffect(() => {
+    document.body.style.overflow = photoIdx !== null ? 'hidden' : '';
+    return () => { document.body.style.overflow = ''; };
+  }, [photoIdx]);
 
   const specs: [string, string | number][] = [
     ['Tipo', property.tipoImovel || '-'],
@@ -68,7 +66,7 @@ export default function PropertyCard({ property, compatibility, onEdit, onDelete
 
   return (
     <>
-      {/* CARD */}
+      {/* CARD NA LISTA */}
       <div
         className="rounded-3xl p-4 cursor-pointer select-none"
         style={{ background: 'rgba(255,255,255,0.05)', backdropFilter: 'blur(20px)', border: '1px solid rgba(255,255,255,0.1)', transition: 'all .3s cubic-bezier(.4,0,.2,1)' }}
@@ -87,8 +85,8 @@ export default function PropertyCard({ property, compatibility, onEdit, onDelete
             </div>
           )}
           {totalFotos > 1 && (
-            <div className="absolute bottom-2 right-2 text-white text-xs px-2 py-0.5 rounded-lg" style={{ background: 'rgba(0,0,0,0.6)' }}>
-              {totalFotos} fotos
+            <div className="absolute bottom-2 left-2 text-white text-xs font-semibold px-2 py-0.5 rounded-lg" style={{ background: 'rgba(0,0,0,0.6)' }}>
+              📷 {totalFotos} fotos
             </div>
           )}
         </div>
@@ -132,22 +130,31 @@ export default function PropertyCard({ property, compatibility, onEdit, onDelete
         <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-[110] p-4" onClick={() => setShowDetail(false)}>
           <div className="bg-[#181818] w-full max-w-4xl rounded-3xl max-h-[92vh] overflow-auto" onClick={e => e.stopPropagation()}>
 
-            {/* Imagem de capa — clicável para abrir lightbox */}
+            {/* Foto principal — clique abre lightbox */}
             <div
               className="relative w-full rounded-t-3xl overflow-hidden group"
               style={{ aspectRatio: '16/6', background: '#1f2937', cursor: totalFotos > 0 ? 'zoom-in' : 'default' }}
-              onClick={() => totalFotos > 0 && openLightbox(0)}
+              onClick={() => totalFotos > 0 && setPhotoIdx(0)}
             >
               {fotos[0]
                 ? <img src={fotos[0]} alt={property.titulo} className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-[1.02]" />
                 : <div className="w-full h-full flex items-center justify-center text-zinc-600 text-6xl">📷</div>
               }
               <div className="absolute inset-0 bg-gradient-to-t from-[#181818] via-transparent to-transparent" />
+
               {totalFotos > 0 && (
-                <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
-                  <span className="bg-black/60 text-white text-sm px-4 py-2 rounded-full">🔍 Ampliar foto</span>
+                <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-200"
+                  style={{ background: 'rgba(0,0,0,0.25)' }}>
+                  <span className="bg-black/70 text-white text-sm font-semibold px-4 py-2 rounded-full">🔍 Ampliar foto</span>
                 </div>
               )}
+
+              {totalFotos > 1 && (
+                <div className="absolute bottom-4 left-4 text-white text-xs font-semibold px-3 py-1 rounded-full" style={{ background: 'rgba(0,0,0,0.65)' }}>
+                  1 / {totalFotos}
+                </div>
+              )}
+
               <button onClick={e => { e.stopPropagation(); setShowDetail(false); }}
                 className="absolute top-4 right-4 bg-black/60 hover:bg-black/80 text-white w-10 h-10 rounded-full flex items-center justify-center transition-colors">
                 <X size={20} />
@@ -155,11 +162,6 @@ export default function PropertyCard({ property, compatibility, onEdit, onDelete
               {compatibility !== undefined && (
                 <div className="absolute top-4 left-4 text-white text-sm font-bold px-3 py-1.5 rounded-xl" style={{ background: 'rgba(229,9,20,0.9)' }}>
                   {compatibility}% Compatível
-                </div>
-              )}
-              {totalFotos > 1 && (
-                <div className="absolute bottom-4 right-4 text-white text-xs px-2.5 py-1 rounded-lg" style={{ background: 'rgba(0,0,0,0.6)' }}>
-                  1 / {totalFotos}
                 </div>
               )}
             </div>
@@ -214,22 +216,21 @@ export default function PropertyCard({ property, compatibility, onEdit, onDelete
                 </a>
               )}
 
-              {/* GALERIA COM LIGHTBOX */}
-              {totalFotos > 0 && (
+              {/* GALERIA DE MINIATURAS */}
+              {totalFotos > 1 && (
                 <div className="mb-6">
-                  <p className="text-xs text-gray-400 uppercase tracking-wide mb-3">
-                    Galeria {totalFotos > 1 ? `(${totalFotos} fotos — clique para ampliar)` : '(clique para ampliar)'}
-                  </p>
+                  <p className="text-xs text-gray-400 uppercase tracking-wide mb-3">Galeria — clique para ampliar</p>
                   <div className="grid grid-cols-3 md:grid-cols-4 gap-2">
                     {fotos.map((f, i) => (
-                      <div
-                        key={i}
-                        className="aspect-video rounded-xl overflow-hidden cursor-zoom-in hover:opacity-80 transition-opacity relative group"
-                        onClick={() => openLightbox(i)}
-                      >
-                        <img src={f} alt={`Foto ${i + 1}`} className="w-full h-full object-cover" />
-                        <div className="absolute inset-0 flex items-center justify-center bg-black/0 group-hover:bg-black/30 transition-colors">
-                          <span className="text-white text-lg opacity-0 group-hover:opacity-100 transition-opacity">🔍</span>
+                      <div key={i}
+                        className="aspect-video rounded-xl overflow-hidden cursor-zoom-in relative group"
+                        style={{ border: '2px solid transparent', transition: 'border-color .2s' }}
+                        onMouseEnter={e => (e.currentTarget.style.borderColor = '#E50914')}
+                        onMouseLeave={e => (e.currentTarget.style.borderColor = 'transparent')}
+                        onClick={() => setPhotoIdx(i)}>
+                        <img src={f} alt={`Foto ${i + 1}`} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-200" />
+                        <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity" style={{ background: 'rgba(0,0,0,0.3)' }}>
+                          <span className="text-white text-xs font-semibold">🔍</span>
                         </div>
                       </div>
                     ))}
@@ -255,91 +256,80 @@ export default function PropertyCard({ property, compatibility, onEdit, onDelete
         </div>
       )}
 
-      {/* LIGHTBOX — foto ampliada com navegação */}
-      {photoIdx !== null && totalFotos > 0 && (
+      {/* LIGHTBOX COMPLETO */}
+      {photoIdx !== null && (
         <div
-          className="fixed inset-0 bg-black/95 flex items-center justify-center z-[300] p-4"
-          onClick={closeLightbox}
-          style={{ backdropFilter: 'blur(8px)' }}
+          className="fixed inset-0 z-[300] flex flex-col"
+          style={{ background: 'rgba(0,0,0,0.97)' }}
+          onClick={() => setPhotoIdx(null)}
         >
-          {/* Botão fechar */}
-          <button
-            onClick={closeLightbox}
-            className="absolute top-5 right-5 text-white w-11 h-11 rounded-full flex items-center justify-center transition-colors"
-            style={{ background: 'rgba(255,255,255,0.15)' }}
-            onMouseEnter={e => (e.currentTarget.style.background = 'rgba(255,255,255,0.25)')}
-            onMouseLeave={e => (e.currentTarget.style.background = 'rgba(255,255,255,0.15)')}
-            aria-label="Fechar"
-          >
-            <X size={22} />
-          </button>
-
-          {/* Contador */}
-          {totalFotos > 1 && (
-            <div className="absolute top-5 left-1/2 -translate-x-1/2 text-white text-sm px-4 py-1.5 rounded-full" style={{ background: 'rgba(0,0,0,0.6)' }}>
+          {/* Topo: contador + fechar */}
+          <div className="flex items-center justify-between px-6 py-4 flex-shrink-0" onClick={e => e.stopPropagation()}>
+            <span className="text-white/70 text-sm font-medium select-none">
               {photoIdx + 1} / {totalFotos}
-            </div>
-          )}
-
-          {/* Botão anterior */}
-          {totalFotos > 1 && (
+            </span>
             <button
-              onClick={prevPhoto}
-              className="absolute left-4 top-1/2 -translate-y-1/2 text-white w-12 h-12 rounded-full flex items-center justify-center transition-all"
-              style={{ background: 'rgba(255,255,255,0.15)' }}
-              onMouseEnter={e => (e.currentTarget.style.background = 'rgba(255,255,255,0.3)')}
-              onMouseLeave={e => (e.currentTarget.style.background = 'rgba(255,255,255,0.15)')}
-              aria-label="Foto anterior"
-            >
-              <ChevronLeft size={26} />
+              onClick={() => setPhotoIdx(null)}
+              className="text-white/80 hover:text-white w-10 h-10 rounded-full flex items-center justify-center transition-colors"
+              style={{ background: 'rgba(255,255,255,0.1)' }}>
+              <X size={22} />
             </button>
-          )}
+          </div>
 
-          {/* Imagem ampliada */}
-          <img
-            src={fotos[photoIdx]}
-            alt={`Foto ${photoIdx + 1}`}
-            className="max-w-full max-h-[85vh] rounded-2xl object-contain select-none"
-            style={{ boxShadow: '0 25px 60px rgba(0,0,0,0.8)' }}
-            onClick={e => e.stopPropagation()}
-            draggable={false}
-          />
+          {/* Foto central com setas */}
+          <div className="flex-1 flex items-center justify-center relative px-16 min-h-0" onClick={e => e.stopPropagation()}>
+            {totalFotos > 1 && (
+              <button
+                onClick={prev}
+                className="absolute left-3 md:left-6 text-white w-12 h-12 rounded-full flex items-center justify-center transition-all hover:scale-110"
+                style={{ background: 'rgba(255,255,255,0.15)', backdropFilter: 'blur(4px)' }}>
+                <ChevronLeft size={28} />
+              </button>
+            )}
 
-          {/* Botão próximo */}
-          {totalFotos > 1 && (
-            <button
-              onClick={nextPhoto}
-              className="absolute right-4 top-1/2 -translate-y-1/2 text-white w-12 h-12 rounded-full flex items-center justify-center transition-all"
-              style={{ background: 'rgba(255,255,255,0.15)' }}
-              onMouseEnter={e => (e.currentTarget.style.background = 'rgba(255,255,255,0.3)')}
-              onMouseLeave={e => (e.currentTarget.style.background = 'rgba(255,255,255,0.15)')}
-              aria-label="Próxima foto"
-            >
-              <ChevronRight size={26} />
-            </button>
-          )}
+            <img
+              key={photoIdx}
+              src={fotos[photoIdx]}
+              alt={`Foto ${photoIdx + 1}`}
+              className="max-w-full rounded-xl object-contain select-none"
+              style={{ maxHeight: '75vh' }}
+              draggable={false}
+            />
+
+            {totalFotos > 1 && (
+              <button
+                onClick={next}
+                className="absolute right-3 md:right-6 text-white w-12 h-12 rounded-full flex items-center justify-center transition-all hover:scale-110"
+                style={{ background: 'rgba(255,255,255,0.15)', backdropFilter: 'blur(4px)' }}>
+                <ChevronRight size={28} />
+              </button>
+            )}
+          </div>
 
           {/* Miniaturas na base */}
           {totalFotos > 1 && (
-            <div className="absolute bottom-5 left-1/2 -translate-x-1/2 flex gap-2 max-w-[90vw] overflow-x-auto py-1 px-2">
+            <div className="flex-shrink-0 py-4 px-4 flex gap-2 justify-center overflow-x-auto" onClick={e => e.stopPropagation()}>
               {fotos.map((f, i) => (
                 <button
                   key={i}
-                  onClick={e => { e.stopPropagation(); setPhotoIdx(i); }}
-                  className="flex-shrink-0 rounded-lg overflow-hidden transition-all"
+                  onClick={() => setPhotoIdx(i)}
+                  className="flex-shrink-0 rounded-lg overflow-hidden transition-all duration-200"
                   style={{
-                    width: 56,
-                    height: 40,
-                    border: i === photoIdx ? '2px solid #ef4444' : '2px solid rgba(255,255,255,0.2)',
-                    opacity: i === photoIdx ? 1 : 0.6,
+                    width: '72px', height: '48px',
+                    border: i === photoIdx ? '2px solid #E50914' : '2px solid rgba(255,255,255,0.15)',
+                    opacity: i === photoIdx ? 1 : 0.5,
                     transform: i === photoIdx ? 'scale(1.1)' : 'scale(1)',
-                  }}
-                  aria-label={`Ver foto ${i + 1}`}
-                >
-                  <img src={f} alt="" className="w-full h-full object-cover" />
+                  }}>
+                  <img src={f} alt={`Miniatura ${i + 1}`} className="w-full h-full object-cover" />
                 </button>
               ))}
             </div>
+          )}
+
+          {totalFotos > 1 && (
+            <p className="text-center text-white/30 text-xs pb-3 select-none flex-shrink-0">
+              ← → para navegar · Esc para fechar
+            </p>
           )}
         </div>
       )}
