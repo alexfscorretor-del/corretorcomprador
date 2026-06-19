@@ -31,8 +31,8 @@ type BrokerData = {
 };
 
 /* ============================================================
-   LIGHTBOX — renderizado via Portal direto no <body>
-   Isso garante z-index correto acima de qualquer modal
+   LIGHTBOX — Portal no document.body para escapar qualquer
+   stacking context criado por overflow/transform/opacity
    ============================================================ */
 function Lightbox({
   fotos, startIdx, onClose,
@@ -51,7 +51,6 @@ function Lightbox({
     [fotos.length]
   );
 
-  // teclado
   useEffect(() => {
     const h = (e: KeyboardEvent) => {
       if (e.key === 'ArrowLeft') prev();
@@ -62,18 +61,22 @@ function Lightbox({
     return () => window.removeEventListener('keydown', h);
   }, [prev, next, onClose]);
 
-  // bloqueia scroll do body
   useEffect(() => {
+    const prev = document.body.style.overflow;
     document.body.style.overflow = 'hidden';
-    return () => { document.body.style.overflow = ''; };
+    return () => { document.body.style.overflow = prev; };
   }, []);
 
   const content = (
     <div
       style={{
-        position: 'fixed', inset: 0, zIndex: 99999,
+        /* position:fixed + inset:0 no body — não herda nenhum stacking context */
+        position: 'fixed', inset: 0,
+        zIndex: 2147483647,           /* máximo possível — acima de tudo */
         display: 'flex', flexDirection: 'column',
         background: 'rgba(0,0,0,0.97)',
+        /* isolation:isolate garante que este elemento seja o root do seu próprio stacking */
+        isolation: 'isolate',
       }}
       onTouchStart={(e) => { touchX.current = e.touches[0].clientX; }}
       onTouchEnd={(e) => {
@@ -83,30 +86,42 @@ function Lightbox({
         touchX.current = null;
       }}
     >
-      <style>{`@keyframes lbIn{from{opacity:0;transform:scale(.96)}to{opacity:1;transform:scale(1)}}`}</style>
+      <style>{`
+        @keyframes lbIn{from{opacity:0;transform:scale(.96)}to{opacity:1;transform:scale(1)}}
+        .lb-btn{background:rgba(255,255,255,0.12);border:none;cursor:pointer;display:flex;align-items:center;justify-content:center;color:#fff;transition:background .2s;}
+        .lb-btn:hover{background:rgba(255,255,255,0.28);}
+      `}</style>
 
       {/* barra superior */}
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 20px', background: 'rgba(0,0,0,0.6)', flexShrink: 0 }}>
-        <span style={{ color: 'rgba(255,255,255,0.55)', fontSize: 14 }}>{idx + 1} / {fotos.length}</span>
+      <div style={{
+        display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+        padding: '12px 20px', background: 'rgba(0,0,0,0.55)', flexShrink: 0,
+      }}>
+        <span style={{ color: 'rgba(255,255,255,0.6)', fontSize: 14, fontWeight: 600 }}>
+          {idx + 1} / {fotos.length}
+        </span>
         <button
+          className="lb-btn"
           onClick={onClose}
-          style={{ width: 40, height: 40, borderRadius: '50%', background: 'rgba(255,255,255,0.1)', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', transition: 'background .2s' }}
-          onMouseEnter={(e) => (e.currentTarget.style.background = 'rgba(255,255,255,0.25)')}
-          onMouseLeave={(e) => (e.currentTarget.style.background = 'rgba(255,255,255,0.1)')}
+          aria-label="Fechar galeria"
+          style={{ width: 44, height: 44, borderRadius: '50%' }}
         >
-          <X size={20} />
+          <X size={22} />
         </button>
       </div>
 
       {/* imagem principal */}
-      <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', position: 'relative', minHeight: 0, padding: '0 60px' }}>
+      <div style={{
+        flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center',
+        position: 'relative', minHeight: 0, padding: '0 68px',
+      }}>
         <button
+          className="lb-btn"
           onClick={prev}
-          style={{ position: 'absolute', left: 8, zIndex: 1, width: 44, height: 44, borderRadius: '50%', background: 'rgba(255,255,255,0.1)', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', transition: 'background .2s' }}
-          onMouseEnter={(e) => (e.currentTarget.style.background = 'rgba(255,255,255,0.25)')}
-          onMouseLeave={(e) => (e.currentTarget.style.background = 'rgba(255,255,255,0.1)')}
+          aria-label="Foto anterior"
+          style={{ position: 'absolute', left: 10, width: 52, height: 52, borderRadius: '50%' }}
         >
-          <ChevronLeft size={26} />
+          <ChevronLeft size={30} />
         </button>
 
         <img
@@ -117,38 +132,47 @@ function Lightbox({
             maxWidth: '100%', maxHeight: '100%',
             objectFit: 'contain', borderRadius: 12,
             animation: 'lbIn .22s ease',
-            userSelect: 'none',
+            userSelect: 'none', pointerEvents: 'none',
           }}
           draggable={false}
         />
 
         <button
+          className="lb-btn"
           onClick={next}
-          style={{ position: 'absolute', right: 8, zIndex: 1, width: 44, height: 44, borderRadius: '50%', background: 'rgba(255,255,255,0.1)', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', transition: 'background .2s' }}
-          onMouseEnter={(e) => (e.currentTarget.style.background = 'rgba(255,255,255,0.25)')}
-          onMouseLeave={(e) => (e.currentTarget.style.background = 'rgba(255,255,255,0.1)')}
+          aria-label="Próxima foto"
+          style={{ position: 'absolute', right: 10, width: 52, height: 52, borderRadius: '50%' }}
         >
-          <ChevronRight size={26} />
+          <ChevronRight size={30} />
         </button>
       </div>
 
       {/* thumbnails */}
       {fotos.length > 1 && (
-        <div style={{ flexShrink: 0, display: 'flex', gap: 8, justifyContent: 'center', overflowX: 'auto', padding: '12px 16px', background: 'rgba(0,0,0,0.6)' }}>
+        <div style={{
+          flexShrink: 0, display: 'flex', gap: 8, justifyContent: 'center',
+          overflowX: 'auto', padding: '10px 16px 18px',
+          background: 'rgba(0,0,0,0.55)',
+          scrollbarWidth: 'thin',
+          scrollbarColor: 'rgba(255,255,255,0.2) transparent',
+        }}>
           {fotos.map((f, i) => (
             <button
               key={i}
               onClick={() => setIdx(i)}
+              aria-label={`Ver foto ${i + 1}`}
               style={{
-                flexShrink: 0, width: 54, height: 38,
+                flexShrink: 0, width: 60, height: 42,
                 borderRadius: 8, overflow: 'hidden',
                 border: 'none', cursor: 'pointer', padding: 0,
-                outline: i === idx ? '2px solid #e50914' : '2px solid transparent',
+                outline: i === idx ? '2.5px solid #e50914' : '2.5px solid transparent',
+                outlineOffset: 2,
                 opacity: i === idx ? 1 : 0.45,
                 transition: 'opacity .2s, outline-color .2s',
+                background: 'transparent',
               }}
             >
-              <img src={f} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+              <img src={f} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
             </button>
           ))}
         </div>
@@ -156,7 +180,8 @@ function Lightbox({
     </div>
   );
 
-  // Portal: renderiza diretamente no <body>, fora de qualquer modal
+  // Portal: injeta diretamente no <body> — fora de qualquer elemento com overflow, transform ou opacity
+  if (typeof document === 'undefined') return null;
   return ReactDOM.createPortal(content, document.body);
 }
 
@@ -196,6 +221,11 @@ function PropertyCardClient({
       `https://wa.me/55${tel}?text=${encodeURIComponent(`Olá! Tenho interesse no imóvel: ${prop.titulo}`)}`,
       '_blank'
     );
+  };
+
+  const openLightbox = (i: number) => {
+    // Pequeno delay para garantir que o estado do modal já estabilizou
+    setTimeout(() => setLightboxIdx(i), 0);
   };
 
   return (
@@ -244,6 +274,14 @@ function PropertyCardClient({
           >
             <Heart size={14} fill={favorito ? '#fff' : 'none'} stroke="#fff" />
           </button>
+          {fotos.length > 1 && (
+            <div
+              className="absolute bottom-2 left-2 text-white text-xs font-semibold px-2 py-0.5 rounded-lg"
+              style={{ background: 'rgba(0,0,0,0.65)', backdropFilter: 'blur(4px)' }}
+            >
+              📷 {fotos.length} fotos
+            </div>
+          )}
         </div>
 
         <h4 className="font-semibold text-base text-white mb-1 leading-snug line-clamp-1">{prop.titulo}</h4>
@@ -277,25 +315,46 @@ function PropertyCardClient({
         </div>
       </div>
 
-      {/* ── MODAL DETALHE ── */}
+      {/* ── MODAL DETALHE ──
+          ATENÇÃO: não usar overflow:hidden nem transform neste wrapper,
+          pois criaria um stacking context que prenderia o Portal do Lightbox.
+          O scroll é feito pelo inner box. */}
       {showDetail && (
         <div
-          style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.82)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 500, padding: 16 }}
+          style={{
+            position: 'fixed', inset: 0,
+            background: 'rgba(0,0,0,0.82)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            zIndex: 500,
+            padding: 16,
+            /* SEM overflow:hidden aqui — o Portal do lightbox precisa escapar */
+          }}
           onClick={() => setShowDetail(false)}
         >
           <div
-            style={{ background: '#181818', width: '100%', maxWidth: 860, borderRadius: 24, maxHeight: '92vh', overflowY: 'auto' }}
+            style={{
+              background: '#181818',
+              width: '100%', maxWidth: 860,
+              borderRadius: 24,
+              maxHeight: '92vh',
+              overflowY: 'auto',   /* scroll APENAS no inner box */
+              /* SEM transform/opacity animados aqui — evita stacking context */
+            }}
             onClick={(e) => e.stopPropagation()}
           >
-            {/* hero foto — clique abre lightbox */}
+            {/* hero foto */}
             <div
-              style={{ position: 'relative', width: '100%', aspectRatio: '16/6', background: '#1f2937', borderRadius: '24px 24px 0 0', overflow: 'hidden' }}
+              style={{
+                position: 'relative', width: '100%',
+                aspectRatio: '16/6', background: '#1f2937',
+                borderRadius: '24px 24px 0 0', overflow: 'hidden',
+              }}
             >
               {fotos[0] ? (
                 <img
                   src={fotos[0]} alt={prop.titulo}
-                  style={{ width: '100%', height: '100%', objectFit: 'cover', cursor: 'zoom-in' }}
-                  onClick={() => setLightboxIdx(0)}
+                  style={{ width: '100%', height: '100%', objectFit: 'cover', cursor: 'zoom-in', display: 'block' }}
+                  onClick={(e) => { e.stopPropagation(); openLightbox(0); }}
                   title="Clique para ampliar"
                 />
               ) : (
@@ -303,10 +362,8 @@ function PropertyCardClient({
               )}
               <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to top, #181818 0%, transparent 40%)', pointerEvents: 'none' }} />
               <button
-                onClick={() => setShowDetail(false)}
+                onClick={(e) => { e.stopPropagation(); setShowDetail(false); }}
                 style={{ position: 'absolute', top: 16, right: 16, background: 'rgba(0,0,0,0.6)', border: 'none', borderRadius: '50%', width: 40, height: 40, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff' }}
-                onMouseEnter={(e) => (e.currentTarget.style.background = 'rgba(0,0,0,0.85)')}
-                onMouseLeave={(e) => (e.currentTarget.style.background = 'rgba(0,0,0,0.6)')}
               >
                 <X size={20} />
               </button>
@@ -315,10 +372,17 @@ function PropertyCardClient({
               >
                 {compatibility}% Compatível
               </div>
+              {fotos.length > 1 && (
+                <div
+                  style={{ position: 'absolute', bottom: 16, right: 16, background: 'rgba(0,0,0,0.7)', color: '#fff', fontSize: 12, fontWeight: 600, padding: '4px 10px', borderRadius: 8, backdropFilter: 'blur(4px)', cursor: 'zoom-in' }}
+                  onClick={(e) => { e.stopPropagation(); openLightbox(0); }}
+                >
+                  🔍 Ampliar · {fotos.length} fotos
+                </div>
+              )}
             </div>
 
             <div style={{ padding: '28px 32px' }}>
-              {/* título + preço */}
               <div style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'space-between', alignItems: 'flex-start', gap: 16, marginBottom: 16 }}>
                 <div>
                   <h2 style={{ fontSize: 26, fontWeight: 700, color: '#fff', marginBottom: 4 }}>{prop.titulo}</h2>
@@ -336,7 +400,6 @@ function PropertyCardClient({
                 </div>
               </div>
 
-              {/* estrelas */}
               <div style={{ display: 'flex', gap: 4, marginBottom: 16 }}>
                 {[1,2,3,4,5].map((n) => (
                   <button
@@ -346,7 +409,6 @@ function PropertyCardClient({
                 ))}
               </div>
 
-              {/* ações */}
               <div style={{ display: 'flex', gap: 12, marginBottom: 24 }}>
                 <button
                   onClick={handleInteresse}
@@ -365,7 +427,6 @@ function PropertyCardClient({
                 </button>
               </div>
 
-              {/* specs */}
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(150px,1fr))', gap: 10, marginBottom: 24 }}>
                 {specs.map(([label, val]) => (
                   <div key={label} style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 14, padding: '10px 14px' }}>
@@ -393,7 +454,7 @@ function PropertyCardClient({
                 </a>
               )}
 
-              {/* GALERIA — cada thumb abre o Lightbox no índice certo */}
+              {/* GALERIA — clique em qualquer thumb abre o lightbox */}
               {fotos.length > 0 && (
                 <div style={{ marginBottom: 24 }}>
                   <p style={{ fontSize: 11, color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 12 }}>
@@ -403,12 +464,24 @@ function PropertyCardClient({
                     {fotos.map((f, i) => (
                       <div
                         key={i}
-                        style={{ aspectRatio: '16/9', borderRadius: 10, overflow: 'hidden', cursor: 'pointer', position: 'relative' }}
-                        onClick={() => setLightboxIdx(i)}
-                        onMouseEnter={(e) => { (e.currentTarget.querySelector('img') as HTMLImageElement).style.transform = 'scale(1.07)'; }}
-                        onMouseLeave={(e) => { (e.currentTarget.querySelector('img') as HTMLImageElement).style.transform = 'scale(1)'; }}
+                        style={{ aspectRatio: '16/9', borderRadius: 10, overflow: 'hidden', cursor: 'zoom-in', position: 'relative' }}
+                        onClick={(e) => { e.stopPropagation(); openLightbox(i); }}
+                        onMouseEnter={(e) => {
+                          const img = e.currentTarget.querySelector('img') as HTMLImageElement | null;
+                          if (img) img.style.transform = 'scale(1.07)';
+                        }}
+                        onMouseLeave={(e) => {
+                          const img = e.currentTarget.querySelector('img') as HTMLImageElement | null;
+                          if (img) img.style.transform = 'scale(1)';
+                        }}
                       >
-                        <img src={f} alt={`Foto ${i + 1}`} style={{ width: '100%', height: '100%', objectFit: 'cover', transition: 'transform .25s' }} />
+                        <img src={f} alt={`Foto ${i + 1}`} style={{ width: '100%', height: '100%', objectFit: 'cover', transition: 'transform .25s', display: 'block' }} />
+                        <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(0,0,0,0)', transition: 'background .2s', fontSize: 20 }}
+                          onMouseEnter={(e) => (e.currentTarget.style.background = 'rgba(0,0,0,0.35)')}
+                          onMouseLeave={(e) => (e.currentTarget.style.background = 'rgba(0,0,0,0)')}
+                        >
+                          <span style={{ opacity: 0, transition: 'opacity .2s' }}>🔍</span>
+                        </div>
                       </div>
                     ))}
                   </div>
@@ -428,7 +501,7 @@ function PropertyCardClient({
         </div>
       )}
 
-      {/* LIGHTBOX via Portal — escapa do stacking context do modal */}
+      {/* LIGHTBOX via Portal — injeta no document.body, fora de qualquer stacking context */}
       {lightboxIdx !== null && fotos.length > 0 && (
         <Lightbox fotos={fotos} startIdx={lightboxIdx} onClose={() => setLightboxIdx(null)} />
       )}
