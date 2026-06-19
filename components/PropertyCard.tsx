@@ -1,7 +1,7 @@
 'use client';
 import { useState, useEffect, useCallback } from 'react';
 import { Property } from '@/types';
-import { Pencil, Trash2, X, ExternalLink, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Pencil, Trash2, X, ExternalLink, ChevronLeft, ChevronRight, ZoomIn } from 'lucide-react';
 
 interface Props {
   property: Property;
@@ -14,41 +14,29 @@ interface Props {
 
 export default function PropertyCard({ property, compatibility, onEdit, onDelete, onRating, readonly = false }: Props) {
   const [showDetail, setShowDetail] = useState(false);
-  const [lightboxIdx, setLightboxIdx] = useState<number | null>(null);
+  const [photoIdx, setPhotoIdx] = useState<number | null>(null);
   const r = property.rating || 0;
+  const fotos = property.fotos || [];
 
-  // Filter out invalid blob: URLs that were accidentally persisted
-  const fotos = (property.fotos || []).filter(
-    (f) => f && !f.startsWith('blob:')
-  );
+  // Navegação no lightbox via teclado
+  const handleKeyDown = useCallback((e: KeyboardEvent) => {
+    if (photoIdx === null) return;
+    if (e.key === 'Escape') { setPhotoIdx(null); return; }
+    if (e.key === 'ArrowRight') setPhotoIdx(i => i !== null ? (i + 1) % fotos.length : null);
+    if (e.key === 'ArrowLeft') setPhotoIdx(i => i !== null ? (i - 1 + fotos.length) % fotos.length : null);
+  }, [photoIdx, fotos.length]);
 
-  const openLightbox = useCallback((idx: number) => {
-    setLightboxIdx(idx);
-  }, []);
-
-  const closeLightbox = useCallback(() => {
-    setLightboxIdx(null);
-  }, []);
-
-  const prevPhoto = useCallback(() => {
-    setLightboxIdx((i) => (i === null ? 0 : (i - 1 + fotos.length) % fotos.length));
-  }, [fotos.length]);
-
-  const nextPhoto = useCallback(() => {
-    setLightboxIdx((i) => (i === null ? 0 : (i + 1) % fotos.length));
-  }, [fotos.length]);
-
-  // Keyboard navigation
   useEffect(() => {
-    if (lightboxIdx === null) return;
-    const handler = (e: KeyboardEvent) => {
-      if (e.key === 'ArrowLeft') prevPhoto();
-      else if (e.key === 'ArrowRight') nextPhoto();
-      else if (e.key === 'Escape') closeLightbox();
-    };
-    window.addEventListener('keydown', handler);
-    return () => window.removeEventListener('keydown', handler);
-  }, [lightboxIdx, prevPhoto, nextPhoto, closeLightbox]);
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [handleKeyDown]);
+
+  // Bloqueia scroll do body quando lightbox está aberto
+  useEffect(() => {
+    if (photoIdx !== null) document.body.style.overflow = 'hidden';
+    else document.body.style.overflow = '';
+    return () => { document.body.style.overflow = ''; };
+  }, [photoIdx]);
 
   const specs: [string, string | number][] = [
     ['Tipo', property.tipoImovel || '-'],
@@ -71,7 +59,7 @@ export default function PropertyCard({ property, compatibility, onEdit, onDelete
 
   return (
     <>
-      {/* CARD */}
+      {/* CARD NA LISTA */}
       <div
         className="rounded-3xl p-4 cursor-pointer select-none"
         style={{ background: 'rgba(255,255,255,0.05)', backdropFilter: 'blur(20px)', border: '1px solid rgba(255,255,255,0.1)', transition: 'all .3s cubic-bezier(.4,0,.2,1)' }}
@@ -84,14 +72,14 @@ export default function PropertyCard({ property, compatibility, onEdit, onDelete
             ? <img src={fotos[0]} alt={property.titulo} className="w-full h-full object-cover" />
             : <div className="w-full h-full flex items-center justify-center text-zinc-600 text-4xl">📷</div>
           }
+          {fotos.length > 1 && (
+            <div className="absolute bottom-2 right-2 text-white text-xs font-bold px-2 py-0.5 rounded-lg" style={{ background: 'rgba(0,0,0,0.65)' }}>
+              📸 {fotos.length} fotos
+            </div>
+          )}
           {compatibility !== undefined && (
             <div className="absolute top-2 right-2 text-white text-xs font-bold px-2.5 py-1 rounded-xl" style={{ background: 'rgba(229,9,20,0.9)' }}>
               {compatibility}% Compatível
-            </div>
-          )}
-          {fotos.length > 1 && (
-            <div className="absolute bottom-2 left-2 text-white text-xs font-semibold px-2 py-0.5 rounded-lg" style={{ background: 'rgba(0,0,0,0.6)' }}>
-              📷 {fotos.length} fotos
             </div>
           )}
         </div>
@@ -134,11 +122,12 @@ export default function PropertyCard({ property, compatibility, onEdit, onDelete
       {showDetail && (
         <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-[110] p-4" onClick={() => setShowDetail(false)}>
           <div className="bg-[#181818] w-full max-w-4xl rounded-3xl max-h-[92vh] overflow-auto" onClick={e => e.stopPropagation()}>
-            {/* Foto principal clicável */}
+
+            {/* Foto principal do modal — clicável para abrir lightbox */}
             <div
-              className="relative w-full rounded-t-3xl overflow-hidden group"
-              style={{ aspectRatio: '16/6', background: '#1f2937', cursor: fotos.length > 0 ? 'zoom-in' : 'default' }}
-              onClick={() => fotos.length > 0 && openLightbox(0)}
+              className="relative w-full rounded-t-3xl overflow-hidden group cursor-zoom-in"
+              style={{ aspectRatio: '16/6', background: '#1f2937' }}
+              onClick={() => fotos.length > 0 && setPhotoIdx(0)}
             >
               {fotos[0]
                 ? <img src={fotos[0]} alt={property.titulo} className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105" />
@@ -147,7 +136,9 @@ export default function PropertyCard({ property, compatibility, onEdit, onDelete
               <div className="absolute inset-0 bg-gradient-to-t from-[#181818] via-transparent to-transparent" />
               {fotos.length > 0 && (
                 <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
-                  <span className="bg-black/60 text-white text-sm font-semibold px-4 py-2 rounded-full">🔍 Ampliar foto</span>
+                  <div className="bg-black/60 text-white px-4 py-2 rounded-full flex items-center gap-2 text-sm font-medium">
+                    <ZoomIn size={16} /> Ampliar foto
+                  </div>
                 </div>
               )}
               <button onClick={e => { e.stopPropagation(); setShowDetail(false); }}
@@ -155,7 +146,7 @@ export default function PropertyCard({ property, compatibility, onEdit, onDelete
                 <X size={20} />
               </button>
               {compatibility !== undefined && (
-                <div className="absolute top-4 left-4 text-white text-sm font-bold px-3 py-1.5 rounded-xl" style={{ background: 'rgba(229,9,20,0.9)' }}>
+                <div className="absolute top-4 left-4 text-white text-sm font-bold px-3 py-1.5 rounded-xl z-10" style={{ background: 'rgba(229,9,20,0.9)' }}>
                   {compatibility}% Compatível
                 </div>
               )}
@@ -211,16 +202,26 @@ export default function PropertyCard({ property, compatibility, onEdit, onDelete
                 </a>
               )}
 
-              {/* Galeria de miniaturas */}
+              {/* GALERIA DE MINIATURAS — cada uma abre o lightbox na foto correspondente */}
               {fotos.length > 1 && (
                 <div className="mb-6">
-                  <p className="text-xs text-gray-400 uppercase tracking-wide mb-3">Galeria ({fotos.length} fotos — clique para ampliar)</p>
+                  <p className="text-xs text-gray-400 uppercase tracking-wide mb-3">
+                    Galeria — {fotos.length} fotos <span className="normal-case">(clique para ampliar)</span>
+                  </p>
                   <div className="grid grid-cols-3 md:grid-cols-4 gap-2">
                     {fotos.map((f, i) => (
-                      <div key={i}
-                        className="aspect-video rounded-xl overflow-hidden cursor-zoom-in hover:opacity-80 transition-opacity ring-0 hover:ring-2 hover:ring-red-500"
-                        onClick={() => openLightbox(i)}>
-                        <img src={f} alt={`Foto ${i + 1}`} className="w-full h-full object-cover" />
+                      <div
+                        key={i}
+                        className="relative aspect-video rounded-xl overflow-hidden cursor-zoom-in group"
+                        style={{ border: '2px solid transparent', transition: 'border-color .2s' }}
+                        onMouseEnter={e => (e.currentTarget.style.borderColor = '#E50914')}
+                        onMouseLeave={e => (e.currentTarget.style.borderColor = 'transparent')}
+                        onClick={() => setPhotoIdx(i)}
+                      >
+                        <img src={f} alt={`Foto ${i + 1}`} className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-110" />
+                        <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity bg-black/30">
+                          <ZoomIn size={20} className="text-white" />
+                        </div>
                       </div>
                     ))}
                   </div>
@@ -245,84 +246,92 @@ export default function PropertyCard({ property, compatibility, onEdit, onDelete
         </div>
       )}
 
-      {/* LIGHTBOX */}
-      {lightboxIdx !== null && fotos.length > 0 && (
+      {/* ===== LIGHTBOX COM NAVEGAÇÃO ===== */}
+      {photoIdx !== null && fotos.length > 0 && (
         <div
-          className="fixed inset-0 z-[300] flex flex-col items-center justify-center"
+          className="fixed inset-0 z-[300] flex flex-col"
           style={{ background: 'rgba(0,0,0,0.97)' }}
-          onClick={closeLightbox}
+          onClick={() => setPhotoIdx(null)}
         >
-          {/* Topo: contador + fechar */}
-          <div className="absolute top-0 left-0 right-0 flex items-center justify-between px-6 py-4 z-10">
-            <span className="text-white/70 text-sm font-medium">
-              {lightboxIdx + 1} / {fotos.length}
-            </span>
-            <button
-              onClick={closeLightbox}
-              className="text-white/70 hover:text-white w-10 h-10 flex items-center justify-center rounded-full hover:bg-white/10 transition-colors"
-            >
-              <X size={24} />
-            </button>
+          {/* Barra superior */}
+          <div className="flex items-center justify-between px-6 py-4 shrink-0" onClick={e => e.stopPropagation()}>
+            <p className="text-white font-semibold text-sm truncate max-w-xs md:max-w-md">{property.titulo}</p>
+            <div className="flex items-center gap-4">
+              <span className="text-gray-400 text-sm">{photoIdx + 1} / {fotos.length}</span>
+              <button
+                onClick={() => setPhotoIdx(null)}
+                className="text-white hover:text-gray-300 transition-colors bg-white/10 hover:bg-white/20 w-10 h-10 rounded-full flex items-center justify-center"
+              >
+                <X size={20} />
+              </button>
+            </div>
           </div>
 
-          {/* Imagem principal */}
-          <img
-            src={fotos[lightboxIdx]}
-            alt={`Foto ${lightboxIdx + 1}`}
-            className="max-w-[90vw] max-h-[80vh] object-contain rounded-xl select-none"
-            style={{ boxShadow: '0 25px 60px rgba(0,0,0,0.8)' }}
-            onClick={e => e.stopPropagation()}
-          />
-
-          {/* Setas de navegação */}
-          {fotos.length > 1 && (
-            <>
+          {/* Foto central com setas */}
+          <div className="flex-1 flex items-center justify-center relative min-h-0 px-16" onClick={e => e.stopPropagation()}>
+            {/* Seta esquerda */}
+            {fotos.length > 1 && (
               <button
-                onClick={e => { e.stopPropagation(); prevPhoto(); }}
-                className="absolute left-4 top-1/2 -translate-y-1/2 w-12 h-12 flex items-center justify-center rounded-full text-white transition-colors"
-                style={{ background: 'rgba(255,255,255,0.12)' }}
-                onMouseEnter={e => (e.currentTarget.style.background = 'rgba(255,255,255,0.25)')}
-                onMouseLeave={e => (e.currentTarget.style.background = 'rgba(255,255,255,0.12)')}
+                onClick={e => { e.stopPropagation(); setPhotoIdx(i => i !== null ? (i - 1 + fotos.length) % fotos.length : 0); }}
+                className="absolute left-3 md:left-6 text-white bg-white/10 hover:bg-white/25 transition-colors w-12 h-12 rounded-full flex items-center justify-center z-10"
+                aria-label="Foto anterior"
               >
                 <ChevronLeft size={28} />
               </button>
+            )}
+
+            {/* Imagem ampliada */}
+            <img
+              key={photoIdx}
+              src={fotos[photoIdx]}
+              alt={`Foto ${photoIdx + 1} de ${fotos.length}`}
+              className="max-w-full rounded-xl object-contain"
+              style={{ maxHeight: 'calc(100vh - 200px)', animation: 'fadeIn .18s ease' }}
+              onClick={e => e.stopPropagation()}
+            />
+
+            {/* Seta direita */}
+            {fotos.length > 1 && (
               <button
-                onClick={e => { e.stopPropagation(); nextPhoto(); }}
-                className="absolute right-4 top-1/2 -translate-y-1/2 w-12 h-12 flex items-center justify-center rounded-full text-white transition-colors"
-                style={{ background: 'rgba(255,255,255,0.12)' }}
-                onMouseEnter={e => (e.currentTarget.style.background = 'rgba(255,255,255,0.25)')}
-                onMouseLeave={e => (e.currentTarget.style.background = 'rgba(255,255,255,0.12)')}
+                onClick={e => { e.stopPropagation(); setPhotoIdx(i => i !== null ? (i + 1) % fotos.length : 0); }}
+                className="absolute right-3 md:right-6 text-white bg-white/10 hover:bg-white/25 transition-colors w-12 h-12 rounded-full flex items-center justify-center z-10"
+                aria-label="Próxima foto"
               >
                 <ChevronRight size={28} />
               </button>
-            </>
-          )}
+            )}
+          </div>
 
           {/* Miniaturas na base */}
           {fotos.length > 1 && (
-            <div
-              className="absolute bottom-0 left-0 right-0 flex justify-center gap-2 px-4 py-4 overflow-x-auto"
-              style={{ background: 'linear-gradient(to top, rgba(0,0,0,0.8), transparent)' }}
-              onClick={e => e.stopPropagation()}
-            >
-              {fotos.map((f, i) => (
-                <button
-                  key={i}
-                  onClick={e => { e.stopPropagation(); openLightbox(i); }}
-                  className="flex-shrink-0 w-14 h-10 rounded-lg overflow-hidden transition-all"
-                  style={{
-                    outline: i === lightboxIdx ? '2px solid #E50914' : '2px solid transparent',
-                    outlineOffset: '2px',
-                    opacity: i === lightboxIdx ? 1 : 0.55,
-                  }}
-                >
-                  <img src={f} alt={`Miniatura ${i + 1}`} className="w-full h-full object-cover" />
-                </button>
-              ))}
+            <div className="shrink-0 px-6 pb-5 pt-3" onClick={e => e.stopPropagation()}>
+              <div className="flex gap-2 justify-center overflow-x-auto pb-1">
+                {fotos.map((f, i) => (
+                  <button
+                    key={i}
+                    onClick={() => setPhotoIdx(i)}
+                    className="shrink-0 rounded-lg overflow-hidden transition-all"
+                    style={{
+                      width: 64, height: 44,
+                      border: i === photoIdx ? '2px solid #E50914' : '2px solid rgba(255,255,255,0.15)',
+                      opacity: i === photoIdx ? 1 : 0.55,
+                      transform: i === photoIdx ? 'scale(1.08)' : 'scale(1)',
+                      transition: 'all .2s'
+                    }}
+                    aria-label={`Ver foto ${i + 1}`}
+                  >
+                    <img src={f} alt="" className="w-full h-full object-cover" />
+                  </button>
+                ))}
+              </div>
             </div>
           )}
         </div>
       )}
+
+      <style>{`
+        @keyframes fadeIn { from { opacity: 0; transform: scale(.97); } to { opacity: 1; transform: scale(1); } }
+      `}</style>
     </>
   );
 }
