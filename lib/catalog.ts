@@ -31,15 +31,10 @@ export function generateClientCatalog(client: Client, broker: Broker): void {
   const brokerTelefone = (broker as any).telefone || broker.telefone || '';
   const brokerEmail = (broker as any).email || '';
 
-  // ── Bloco de dados das fotos (injetado UMA VEZ antes de tudo) ──
-  const fotosDataScript = sorted
-    .map((p) => {
-      const fotos = p.fotos || [];
-      const fotosJson = JSON.stringify(fotos).replace(/\\/g, '\\\\').replace(/'/g, "\\'");
-      const safeId = p.id.replace(/-/g, '_');
-      return `window.__fotos_${safeId} = ${fotosJson};`;
-    })
-    .join('\n');
+  // Mapa de fotos: { [id]: string[] } — injetado como JSON único e seguro
+  const fotosMap: Record<string, string[]> = {};
+  sorted.forEach((p) => { fotosMap[p.id] = p.fotos || []; });
+  const fotosMapJson = JSON.stringify(fotosMap);
 
   const cards = sorted
     .map((p) => {
@@ -57,7 +52,7 @@ export function generateClientCatalog(client: Client, broker: Broker): void {
 
       return `
     <div class="card" data-id="${p.id}">
-      <div class="card-media" onclick="openLightboxFromCard('${p.id}', 0)" style="cursor:zoom-in" title="Clique para ampliar fotos">
+      <div class="card-media" onclick="openLightbox('${p.id}',0)" style="cursor:zoom-in" title="Clique para ampliar fotos">
         ${
           imgSrc
             ? `<img src="${imgSrc}" class="card-img" alt="${p.titulo}" loading="lazy">`
@@ -65,7 +60,7 @@ export function generateClientCatalog(client: Client, broker: Broker): void {
         }
         <span class="compat-badge">${cp}% Compatível</span>
         ${fotosCount > 1 ? `<span class="fotos-badge">📷 ${fotosCount} fotos</span>` : ''}
-        <span class="zoom-hint">🔍 Ampliar</span>
+        <span class="zoom-hint">🔍 Ver fotos</span>
       </div>
       <div class="card-body">
         <h3 class="card-title">${p.titulo}</h3>
@@ -215,7 +210,7 @@ ${topImg ? `.hero::before{content:'';position:absolute;inset:0;background:url('$
 .card-img-placeholder{width:100%;height:100%;background:#27272a}
 .compat-badge{position:absolute;top:8px;right:8px;background:rgba(229,9,20,.9);color:#fff;border-radius:12px;padding:4px 10px;font-size:12px;font-weight:700;line-height:1.2;box-shadow:0 8px 20px rgba(0,0,0,.25)}
 .fotos-badge{position:absolute;top:8px;left:8px;background:rgba(0,0,0,.65);color:#fff;border-radius:10px;padding:3px 9px;font-size:11px;font-weight:600}
-.zoom-hint{position:absolute;bottom:10px;left:50%;transform:translateX(-50%);background:rgba(0,0,0,.7);color:#fff;border-radius:10px;padding:5px 12px;font-size:12px;font-weight:600;opacity:0;transition:opacity .2s;pointer-events:none;white-space:nowrap}
+.zoom-hint{position:absolute;bottom:10px;left:50%;transform:translateX(-50%);background:rgba(229,9,20,.85);color:#fff;border-radius:10px;padding:6px 14px;font-size:12px;font-weight:700;opacity:0;transition:opacity .2s;pointer-events:none;white-space:nowrap}
 .card-media:hover .zoom-hint{opacity:1}
 .card-body{padding:0}
 .card-title{font-size:16px;font-weight:700;color:#fff;margin-bottom:4px;line-height:1.35;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
@@ -249,23 +244,77 @@ ${topImg ? `.hero::before{content:'';position:absolute;inset:0;background:url('$
 .dspec span{font-size:13px;color:#e4e4e7}
 .modal-desc{font-size:13px;color:#a1a1aa;line-height:1.6;border-left:3px solid #e50914;padding-left:12px}
 
-/* LIGHTBOX */
-#lightbox{display:none;position:fixed;inset:0;z-index:10000;background:rgba(0,0,0,.96);flex-direction:column;align-items:center;justify-content:center}
+/* ===================== LIGHTBOX ===================== */
+#lightbox{
+  display:none;position:fixed;inset:0;z-index:10000;
+  background:rgba(0,0,0,.97);
+  flex-direction:column;align-items:center;justify-content:center;
+}
 #lightbox.lb-open{display:flex}
-#lb-top{display:flex;align-items:center;justify-content:space-between;width:100%;padding:12px 20px;flex-shrink:0}
-#lb-counter{color:#a1a1aa;font-size:14px;font-weight:600;letter-spacing:.04em}
-#lb-close{background:rgba(255,255,255,.12);border:none;color:#fff;font-size:18px;width:40px;height:40px;border-radius:50%;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:background .2s;flex-shrink:0}
+
+/* top bar */
+#lb-top{
+  display:flex;align-items:center;justify-content:space-between;
+  width:100%;padding:12px 20px;flex-shrink:0;
+}
+#lb-title{color:#fff;font-size:14px;font-weight:600;flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+#lb-counter{color:#a1a1aa;font-size:13px;font-weight:600;letter-spacing:.04em;margin:0 16px;white-space:nowrap}
+#lb-close{
+  background:rgba(255,255,255,.12);border:none;color:#fff;
+  font-size:20px;width:42px;height:42px;border-radius:50%;
+  cursor:pointer;display:flex;align-items:center;justify-content:center;
+  transition:background .2s;flex-shrink:0;line-height:1;
+}
 #lb-close:hover{background:rgba(255,255,255,.28)}
-#lb-main{display:flex;align-items:center;justify-content:center;flex:1;width:100%;min-height:0;gap:0}
-#lb-prev,#lb-next{background:rgba(255,255,255,.1);border:none;color:#fff;font-size:28px;width:54px;height:54px;border-radius:50%;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:background .2s;flex-shrink:0;margin:0 12px}
-#lb-prev:hover,#lb-next:hover{background:rgba(255,255,255,.25)}
-#lb-img-wrap{display:flex;align-items:center;justify-content:center;flex:1;min-width:0;padding:0 8px}
-#lb-img{max-width:100%;max-height:75vh;object-fit:contain;border-radius:8px;display:block;user-select:none;box-shadow:0 8px 40px rgba(0,0,0,.6)}
-#lb-thumbs{display:flex;gap:8px;padding:14px 20px;overflow-x:auto;max-width:100vw;flex-shrink:0;scroll-behavior:smooth}
+
+/* main image area */
+#lb-main{
+  display:flex;align-items:center;justify-content:center;
+  flex:1;width:100%;min-height:0;position:relative;
+}
+#lb-prev,#lb-next{
+  background:rgba(255,255,255,.12);border:none;color:#fff;
+  font-size:28px;width:56px;height:56px;border-radius:50%;
+  cursor:pointer;display:flex;align-items:center;justify-content:center;
+  transition:background .2s,transform .15s;flex-shrink:0;
+  position:absolute;top:50%;transform:translateY(-50%);z-index:2;
+}
+#lb-prev{left:16px}
+#lb-next{right:16px}
+#lb-prev:hover,#lb-next:hover{background:rgba(255,255,255,.28);transform:translateY(-50%) scale(1.08)}
+#lb-prev:active,#lb-next:active{transform:translateY(-50%) scale(.95)}
+
+/* image wrapper with fade animation */
+#lb-img-wrap{
+  display:flex;align-items:center;justify-content:center;
+  flex:1;min-width:0;padding:0 88px;max-height:calc(100vh - 160px);
+}
+#lb-img{
+  max-width:100%;max-height:calc(100vh - 160px);
+  object-fit:contain;border-radius:8px;display:block;
+  user-select:none;box-shadow:0 8px 60px rgba(0,0,0,.8);
+  transition:opacity .22s ease,transform .22s ease;
+}
+#lb-img.lb-fade{opacity:0;transform:scale(.97)}
+
+/* thumbnails strip */
+#lb-thumbs{
+  display:flex;gap:8px;
+  padding:12px 20px 16px;
+  overflow-x:auto;max-width:100vw;flex-shrink:0;
+  scroll-behavior:smooth;
+}
 #lb-thumbs::-webkit-scrollbar{height:4px}
 #lb-thumbs::-webkit-scrollbar-thumb{background:#444;border-radius:2px}
-#lb-thumbs img{width:70px;height:52px;object-fit:cover;border-radius:7px;cursor:pointer;opacity:.45;border:2px solid transparent;transition:opacity .15s,border-color .15s;flex-shrink:0}
-#lb-thumbs img.lb-active{opacity:1;border-color:#e50914}
+#lb-thumbs img{
+  width:72px;height:54px;object-fit:cover;
+  border-radius:7px;cursor:pointer;
+  opacity:.4;border:2px solid transparent;
+  transition:opacity .15s,border-color .15s,transform .15s;
+  flex-shrink:0;
+}
+#lb-thumbs img:hover{opacity:.7;transform:scale(1.06)}
+#lb-thumbs img.lb-active{opacity:1;border-color:#e50914;transform:scale(1.04)}
 
 /* FOOTER */
 .footer{border-top:1px solid #1c1c1e;padding:40px 24px;text-align:center}
@@ -297,22 +346,20 @@ ${topImg ? `.hero::before{content:'';position:absolute;inset:0;background:url('$
   .dspecs-grid{grid-template-columns:repeat(2,1fr)}
   .card-actions{flex-direction:column}
   .btn-detail,.btn-pdf-card{width:100%}
-  #lb-prev,#lb-next{width:42px;height:42px;font-size:22px;margin:0 6px}
+  #lb-prev{left:8px;width:44px;height:44px;font-size:22px}
+  #lb-next{right:8px;width:44px;height:44px;font-size:22px}
+  #lb-img-wrap{padding:0 60px}
 }
 </style>
 </head>
 <body>
 
-<!-- DADOS DAS FOTOS — carregados antes de qualquer card -->
-<script>
-${fotosDataScript}
-</script>
-
 <!-- LIGHTBOX GLOBAL -->
-<div id="lightbox" role="dialog" aria-modal="true" aria-label="Visualizar foto ampliada">
+<div id="lightbox" role="dialog" aria-modal="true" aria-label="Galeria de fotos ampliadas">
   <div id="lb-top">
+    <div id="lb-title"></div>
     <div id="lb-counter"></div>
-    <button id="lb-close" aria-label="Fechar lightbox">✕</button>
+    <button id="lb-close" aria-label="Fechar galeria">&#10005;</button>
   </div>
   <div id="lb-main">
     <button id="lb-prev" aria-label="Foto anterior">&#8592;</button>
@@ -380,7 +427,12 @@ var CLIENT_DATA = JSON.parse(decodeURIComponent(escape(atob('${clientDataStr}'))
 var BROKER_DATA = JSON.parse(decodeURIComponent(escape(atob('${brokerDataStr}'))));
 var ALL_PROPERTIES = JSON.parse(decodeURIComponent(escape(atob('${propertiesJsonStr}'))));
 
-// ---- MODAL DE DETALHES ----
+// ── MAPA DE FOTOS (todas as propriedades) ──
+var FOTOS_MAP = ${fotosMapJson};
+
+// ──────────────────────────────────────────
+// MODAL DE DETALHES
+// ──────────────────────────────────────────
 function openDetail(id) {
   var el = document.getElementById('modal-' + id);
   if (el) { el.classList.add('open'); document.body.style.overflow = 'hidden'; }
@@ -390,23 +442,23 @@ function closeDetail(id) {
   if (el) { el.classList.remove('open'); document.body.style.overflow = ''; }
 }
 
-// ---- LIGHTBOX ----
+// ──────────────────────────────────────────
+// LIGHTBOX
+// ──────────────────────────────────────────
 var _lbFotos = [];
-var _lbIdx = 0;
+var _lbIdx   = 0;
+var _lbTitle = '';
 
 function openLightbox(propId, startIdx) {
-  var safeId = propId.replace(/-/g, '_');
-  _lbFotos = window['__fotos_' + safeId] || [];
-  if (!_lbFotos.length) return;
-  _lbIdx = startIdx || 0;
-  _lbRender();
-  var lb = document.getElementById('lightbox');
-  lb.classList.add('lb-open');
+  var fotos = FOTOS_MAP[propId];
+  if (!fotos || fotos.length === 0) return;
+  var prop = ALL_PROPERTIES.find(function(p){ return p.id === propId; });
+  _lbTitle = prop ? prop.titulo : '';
+  _lbFotos = fotos;
+  _lbIdx   = (startIdx || 0);
+  _lbRender(false);
+  document.getElementById('lightbox').classList.add('lb-open');
   document.body.style.overflow = 'hidden';
-}
-
-function openLightboxFromCard(propId, startIdx) {
-  openLightbox(propId, startIdx || 0);
 }
 
 function closeLightbox() {
@@ -414,54 +466,106 @@ function closeLightbox() {
   document.body.style.overflow = '';
 }
 
-function _lbRender() {
+function _lbRender(animate) {
   var img = document.getElementById('lb-img');
-  img.src = _lbFotos[_lbIdx];
+  document.getElementById('lb-title').textContent = _lbTitle;
   document.getElementById('lb-counter').textContent = (_lbIdx + 1) + ' / ' + _lbFotos.length;
+
+  // Fade out → swap src → fade in
+  if (animate) {
+    img.classList.add('lb-fade');
+    setTimeout(function() {
+      img.src = _lbFotos[_lbIdx];
+      img.onload = function(){ img.classList.remove('lb-fade'); };
+      // fallback se onload não disparar
+      setTimeout(function(){ img.classList.remove('lb-fade'); }, 400);
+    }, 200);
+  } else {
+    img.src = _lbFotos[_lbIdx];
+  }
+
+  // Thumbnails
   var thumbsEl = document.getElementById('lb-thumbs');
   thumbsEl.innerHTML = _lbFotos.map(function(f, i) {
-    return '<img src="' + f + '" alt="Foto ' + (i+1) + '" class="' + (i === _lbIdx ? 'lb-active' : '') + '" onclick="_lbGoTo(' + i + ')">';
+    return '<img src="' + f + '" alt="Foto ' + (i+1) + '" ' +
+           'class="' + (i === _lbIdx ? 'lb-active' : '') + '" ' +
+           'onclick="_lbGoTo(' + i + ')" ' +
+           'loading="lazy">';
   }).join('');
-  var active = thumbsEl.querySelectorAll('img')[_lbIdx];
-  if (active) active.scrollIntoView({ block: 'nearest', inline: 'center', behavior: 'smooth' });
+
+  var activeThumb = thumbsEl.querySelectorAll('img')[_lbIdx];
+  if (activeThumb) {
+    activeThumb.scrollIntoView({ block: 'nearest', inline: 'center', behavior: 'smooth' });
+  }
+
+  // Oculta setas se só uma foto
+  var showNav = _lbFotos.length > 1;
+  document.getElementById('lb-prev').style.display = showNav ? '' : 'none';
+  document.getElementById('lb-next').style.display = showNav ? '' : 'none';
 }
 
 function _lbNav(dir) {
   if (!_lbFotos.length) return;
   _lbIdx = (_lbIdx + dir + _lbFotos.length) % _lbFotos.length;
-  _lbRender();
+  _lbRender(true);
 }
 
-function _lbGoTo(i) { _lbIdx = i; _lbRender(); }
+function _lbGoTo(i) {
+  if (i === _lbIdx) return;
+  _lbIdx = i;
+  _lbRender(true);
+}
 
+// Botões
 document.getElementById('lb-close').addEventListener('click', closeLightbox);
-document.getElementById('lb-prev').addEventListener('click', function() { _lbNav(-1); });
-document.getElementById('lb-next').addEventListener('click', function() { _lbNav(1); });
+document.getElementById('lb-prev').addEventListener('click', function(){ _lbNav(-1); });
+document.getElementById('lb-next').addEventListener('click', function(){ _lbNav(1); });
+
+// Fechar clicando no fundo
 document.getElementById('lightbox').addEventListener('click', function(e) {
   if (e.target === this) closeLightbox();
 });
-document.getElementById('lb-img-wrap').addEventListener('click', function(e) {
-  if (e.target === this) closeLightbox();
-});
 
+// Teclado
 document.addEventListener('keydown', function(e) {
   var lb = document.getElementById('lightbox');
   if (lb.classList.contains('lb-open')) {
-    if (e.key === 'Escape') { closeLightbox(); return; }
-    if (e.key === 'ArrowLeft') { _lbNav(-1); return; }
-    if (e.key === 'ArrowRight') { _lbNav(1); return; }
+    if (e.key === 'Escape')      { closeLightbox(); return; }
+    if (e.key === 'ArrowLeft')   { _lbNav(-1); return; }
+    if (e.key === 'ArrowRight')  { _lbNav(1); return; }
   } else {
     if (e.key === 'Escape') {
       document.querySelectorAll('.modal-overlay.open').forEach(function(m) {
-        m.classList.remove('open'); document.body.style.overflow = '';
+        m.classList.remove('open');
+        document.body.style.overflow = '';
       });
     }
   }
 });
 
-// ---- ESTRELAS ----
+// ── SWIPE TOUCH (mobile) ──
+(function() {
+  var lbEl = document.getElementById('lightbox');
+  var touchStartX = 0;
+  var touchStartY = 0;
+  lbEl.addEventListener('touchstart', function(e) {
+    touchStartX = e.changedTouches[0].clientX;
+    touchStartY = e.changedTouches[0].clientY;
+  }, { passive: true });
+  lbEl.addEventListener('touchend', function(e) {
+    var dx = e.changedTouches[0].clientX - touchStartX;
+    var dy = e.changedTouches[0].clientY - touchStartY;
+    if (Math.abs(dx) > Math.abs(dy) && Math.abs(dx) > 50) {
+      _lbNav(dx < 0 ? 1 : -1);
+    }
+  }, { passive: true });
+})();
+
+// ──────────────────────────────────────────
+// ESTRELAS
+// ──────────────────────────────────────────
 function saveRatings(r) { try { localStorage.setItem(RATINGS_KEY, JSON.stringify(r)); } catch(e) {} }
-function loadRatings() { try { return JSON.parse(localStorage.getItem(RATINGS_KEY) || '{}'); } catch(e) { return {}; } }
+function loadRatings()  { try { return JSON.parse(localStorage.getItem(RATINGS_KEY) || '{}'); } catch(e) { return {}; } }
 function applyRatings() {
   var saved = loadRatings();
   document.querySelectorAll('.star').forEach(function(s) {
@@ -471,13 +575,17 @@ function applyRatings() {
 }
 document.querySelectorAll('.star').forEach(function(star) {
   star.addEventListener('click', function() {
-    var r = loadRatings(); r[this.dataset.id] = parseInt(this.dataset.val);
-    saveRatings(r); applyRatings();
+    var r = loadRatings();
+    r[this.dataset.id] = parseInt(this.dataset.val);
+    saveRatings(r);
+    applyRatings();
   });
 });
 applyRatings();
 
-// ---- PDF INDIVIDUAL ----
+// ──────────────────────────────────────────
+// PDF INDIVIDUAL
+// ──────────────────────────────────────────
 function printSingleProperty(id) {
   var p = ALL_PROPERTIES.find(function(x) { return x.id === id; });
   if (!p) return;
@@ -509,7 +617,7 @@ function printSingleProperty(id) {
   window.print();
   overlay.style.display = 'none';
 }
-<\/script>
+</script>
 </body>
 </html>`;
 
