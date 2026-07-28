@@ -3,6 +3,8 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
+import { loginSchema, registerSchema, recoverSchema } from '@/schemas/auth';
+import { getErrorMessage } from '@/lib/errors';
 
 type Mode = 'login' | 'register' | 'recover';
 
@@ -18,6 +20,13 @@ export default function LoginPage() {
     e.preventDefault();
     setLoading(true);
     setMessage('');
+
+    const parsed = loginSchema.safeParse({ email, password });
+    if (!parsed.success) {
+      setLoading(false);
+      setMessage(parsed.error.issues[0]?.message || 'Dados inválidos.');
+      return;
+    }
 
     const { data, error } = await supabase.auth.signInWithPassword({
       email: email.trim().toLowerCase(),
@@ -43,6 +52,13 @@ export default function LoginPage() {
     e.preventDefault();
     setLoading(true);
     setMessage('');
+
+    const parsed = registerSchema.safeParse({ email, password });
+    if (!parsed.success) {
+      setLoading(false);
+      setMessage(parsed.error.issues[0]?.message || 'Dados inválidos.');
+      return;
+    }
 
     const normalizedEmail = email.trim().toLowerCase();
 

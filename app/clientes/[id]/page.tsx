@@ -11,7 +11,16 @@ import { Client, Property, Broker } from '@/types';
 import { calculateCompatibility } from '@/lib/compatibility';
 import { generateClientCatalog } from '@/lib/catalog';
 import { supabase } from '@/lib/supabase';
-import { uploadPhotos, deletePhotos } from '@/lib/uploadPhotos';
+import { mapRowToClient, type DbClientRow } from '@/lib/mappers';
+import * as propertiesRepo from '@/repositories/propertiesRepository';
+import * as brokersRepo from '@/repositories/brokersRepository';
+import { saveProperty as savePropertyService, removeProperty } from '@/services/propertyService';
+import {
+  archiveClientWithProperties,
+  restoreClientWithProperties,
+} from '@/services/clientService';
+import { updateClientRecord } from '@/repositories/clientsRepository';
+import { getErrorMessage } from '@/lib/errors';
 import {
   ArrowLeft,
   Pencil,
@@ -37,176 +46,6 @@ type Ordenacao =
   | 'preco_asc'
   | 'preco_desc'
   | 'recentes';
-
-type DbClientRow = {
-  id: string;
-  user_id: string;
-  created_at: string;
-  nome: string;
-  telefone: string | null;
-  email: string | null;
-  cpf: string | null;
-  aniversario: string | null;
-  sexo: string | null;
-  estado_civil: string | null;
-  tem_filhos: boolean | null;
-  quant_filhos: number | null;
-  prazo: string | null;
-  tipo_imovel: string | null;
-  preco_min: number | null;
-  preco_max: number | null;
-  bairro: string | null;
-  bairros_secundarios: string | null;
-  tamanho: number | null;
-  quartos_min: number | null;
-  suites_min: number | null;
-  banheiros_min: number | null;
-  vagas_min: number | null;
-  tipo_vaga: string | null;
-  condominio_max: number | null;
-  pref_andar: boolean | null;
-  andar_apartir: number | null;
-  novo: string | null;
-  reformado: string | null;
-  aceita_financiamento: string | null;
-  mobiliado: string | null;
-  varanda: string | null;
-  area_lazer: string | null;
-  aceita_pet: string | null;
-  archived: boolean | null;
-  status_negocio: string | null;
-  observacoes: string | null;
-};
-
-type DbPropertyRow = {
-  id: string;
-  created_at: string;
-  client_id: string;
-  titulo: string;
-  endereco: string | null;
-  preco: number | null;
-  area: number | null;
-  quartos: number | null;
-  suites: number | null;
-  banheiros: number | null;
-  vagas: number | null;
-  tipo_imovel: string | null;
-  tipo_vaga_cobertura: string | null;
-  tipo_vaga_modelo: string | null;
-  andar: number | null;
-  condominio: number | null;
-  predio_novo: string | null;
-  reformado: string | null;
-  mobiliado: boolean | null;
-  varanda: boolean | null;
-  area_lazer: boolean | null;
-  aceita_pet: boolean | null;
-  aceita_financiamento: string | null;
-  bairro: string | null;
-  descricao: string | null;
-  favorito: boolean | null;
-  avaliacao: number | null;
-  fotos: string[] | null;
-  user_id: string;
-  archived?: boolean | null;
-};
-
-type DbBrokerRow = {
-  id: string;
-  user_id: string;
-  nome: string | null;
-  nome_exibicao: string | null;
-  telefone: string | null;
-  email: string | null;
-  empresa: string | null;
-  creci: string | null;
-};
-
-function mapRowToClient(row: DbClientRow): Client {
-  return {
-    id: row.id,
-    createdAt: row.created_at,
-    nome: row.nome ?? '',
-    telefone: row.telefone ?? '',
-    email: row.email ?? '',
-    cpf: row.cpf ?? '',
-    aniversario: row.aniversario ?? '',
-    sexo: row.sexo ?? '',
-    estadoCivil: row.estado_civil ?? '',
-    temFilhos: row.tem_filhos ?? false,
-    quantFilhos: row.quant_filhos ?? 0,
-    prazo: row.prazo ?? '',
-    tipoImovel: row.tipo_imovel ?? '',
-    precoMin: row.preco_min ?? undefined,
-    precoMax: row.preco_max ?? undefined,
-    orcamentoMin: row.preco_min ?? undefined,
-    orcamentoMax: row.preco_max ?? undefined,
-    bairro: row.bairro ?? '',
-    bairrosSecundarios: row.bairros_secundarios ?? '',
-    tamanho: row.tamanho ?? undefined,
-    quartosMin: row.quartos_min ?? undefined,
-    suitesMin: row.suites_min ?? undefined,
-    banheirosMin: row.banheiros_min ?? undefined,
-    vagasMin: row.vagas_min ?? undefined,
-    tipoVaga: row.tipo_vaga ?? '',
-    condominioMax: row.condominio_max ?? undefined,
-    prefAndar: row.pref_andar ?? false,
-    andarApartir: row.andar_apartir ?? null,
-    novo: (row.novo as Client['novo']) ?? 'indiferente',
-    reformado: (row.reformado as Client['reformado']) ?? 'indiferente',
-    aceitaFinanciamento:
-      (row.aceita_financiamento as Client['aceitaFinanciamento']) ?? 'indiferente',
-    mobiliado: (row.mobiliado as Client['mobiliado']) ?? 'indiferente',
-    varanda: (row.varanda as Client['varanda']) ?? 'indiferente',
-    areaLazer: (row.area_lazer as Client['areaLazer']) ?? 'indiferente',
-    aceitaPet: (row.aceita_pet as Client['aceitaPet']) ?? 'indiferente',
-    archived: row.archived ?? false,
-    statusNegocio:
-      row.status_negocio === 'fechou' ||
-      row.status_negocio === 'nao_fechou' ||
-      row.status_negocio === 'em_andamento'
-        ? row.status_negocio
-        : 'em_andamento',
-    observacoes: row.observacoes ?? '',
-    properties: [],
-  };
-}
-
-function mapRowToProperty(row: DbPropertyRow): Property {
-  return {
-    id: row.id,
-    clientId: row.client_id,
-    createdAt: row.created_at,
-    titulo: row.titulo ?? '',
-    tipoImovel: row.tipo_imovel ?? '',
-    preco: Number(row.preco ?? 0),
-    bairro: row.bairro ?? '',
-    tamanho: row.area ?? undefined,
-    quartos: row.quartos ?? undefined,
-    suites: row.suites ?? undefined,
-    banheiros: row.banheiros ?? undefined,
-    vagas: row.vagas ?? undefined,
-    tipoVagaCobertura: (row.tipo_vaga_cobertura as Property['tipoVagaCobertura']) ?? '',
-    tipoVagaModelo: (row.tipo_vaga_modelo as Property['tipoVagaModelo']) ?? '',
-    andar: row.andar ?? null,
-    condominio: row.condominio ?? null,
-    predioNovo: (row.predio_novo as Property['predioNovo']) ?? '',
-    reformado: (row.reformado as Property['reformado']) ?? '',
-    aceitaFinanciamento:
-      (row.aceita_financiamento as Property['aceitaFinanciamento']) ?? '',
-    mobiliado: row.mobiliado ?? false,
-    varanda: row.varanda ?? false,
-    areaLazer: row.area_lazer ?? false,
-    aceitaPet: row.aceita_pet ?? false,
-    descricao: row.descricao ?? '',
-    favorito: row.favorito ?? false,
-    rating: row.avaliacao ?? 0,
-    link: '',
-    fotos: row.fotos ?? [],
-    status: 'disponivel',
-    observacoes: row.endereco ?? '',
-  };
-}
 
 function gerarPDF(client: Client, prop: Property, broker: Broker & { nomeExibicao?: string }): void {
   const cp = calculateCompatibility(client, prop);
@@ -383,46 +222,26 @@ export default function ClientDetailPage() {
 
   useEffect(() => {
     const loadBroker = async () => {
-      const { data: userData, error: userError } = await supabase.auth.getUser();
-      if (userError || !userData.user) return;
-
-      const { data, error } = await supabase
-        .from('brokers')
-        .select('id, user_id, nome, nome_exibicao, telefone, email, empresa, creci')
-        .eq('user_id', userData.user.id)
-        .maybeSingle();
-
-      if (error || !data) return;
-
-      const row = data as DbBrokerRow;
-      setBroker({
-        id: row.id ?? '',
-        nome: row.nome ?? '',
-        telefone: row.telefone ?? '',
-        nomeExibicao: row.nome_exibicao ?? '',
-        empresa: row.empresa ?? '',
-        email: row.email ?? '',
-      });
+      try {
+        const data = await brokersRepo.getCurrentBroker();
+        if (data) setBroker(data);
+      } catch {
+        /* ignore */
+      }
     };
-
     void loadBroker();
   }, []);
 
-  const carregarImoveisDoCliente = async (clientId: string, userId: string): Promise<Property[]> => {
-    const { data: propertiesData, error: propertiesError } = await supabase
-      .from('properties')
-      .select('*')
-      .eq('client_id', clientId)
-      .eq('user_id', userId)
-      .order('created_at', { ascending: false });
 
-    if (propertiesError) {
-      console.error('Erro ao carregar imóveis:', propertiesError);
+  const carregarImoveisDoCliente = async (clientId: string, _userId?: string): Promise<Property[]> => {
+    try {
+      return await propertiesRepo.listPropertiesByClient(clientId);
+    } catch (err) {
+      console.error('Erro ao carregar imóveis:', err);
       return [];
     }
-
-    return (propertiesData || []).map((row) => mapRowToProperty(row as DbPropertyRow));
   };
+
 
   useEffect(() => {
     const loadClient = async () => {
@@ -578,322 +397,78 @@ export default function ClientDetailPage() {
   }
 
   const updateClient = async (updated: Client): Promise<void> => {
-    const { data, error } = await supabase
-      .from('clients')
-      .update({
-        nome: updated.nome,
-        telefone: updated.telefone || null,
-        email: updated.email || null,
-        cpf: updated.cpf || null,
-        aniversario: updated.aniversario || null,
-        sexo: updated.sexo || null,
-        estado_civil: updated.estadoCivil || null,
-        tem_filhos: updated.temFilhos ?? false,
-        quant_filhos: updated.quantFilhos ?? 0,
-        prazo: updated.prazo || null,
-        tipo_imovel: Array.isArray(updated.tipoImovel)
-          ? updated.tipoImovel.join(', ')
-          : updated.tipoImovel || null,
-        preco_min: updated.precoMin ?? updated.orcamentoMin ?? null,
-        preco_max: updated.precoMax ?? updated.orcamentoMax ?? null,
-        bairro: updated.bairro || null,
-        bairros_secundarios: updated.bairrosSecundarios || null,
-        tamanho: updated.tamanho ?? null,
-        quartos_min: updated.quartosMin ?? null,
-        suites_min: updated.suitesMin ?? null,
-        banheiros_min: updated.banheirosMin ?? null,
-        vagas_min: updated.vagasMin ?? null,
-        tipo_vaga: updated.tipoVaga || null,
-        condominio_max: updated.condominioMax ?? null,
-        pref_andar: updated.prefAndar ?? false,
-        andar_apartir: updated.prefAndar ? (updated.andarApartir ?? null) : null,
-        novo: updated.novo || 'indiferente',
-        reformado: updated.reformado || 'indiferente',
-        aceita_financiamento: updated.aceitaFinanciamento || 'indiferente',
-        mobiliado: updated.mobiliado || 'indiferente',
-        varanda: updated.varanda || 'indiferente',
-        area_lazer: updated.areaLazer || 'indiferente',
-        aceita_pet: updated.aceitaPet || 'indiferente',
-        archived: updated.archived ?? false,
-        status_negocio: updated.statusNegocio ?? 'em_andamento',
-        observacoes: updated.observacoes || null,
-      })
-      .eq('id', updated.id)
-      .select()
-      .single();
-
-    if (error) {
-      console.error('ERRO UPDATE CLIENTE:', error);
-      alert(`Erro ao atualizar cliente: ${error.message}`);
-      return;
+    try {
+      const data = await updateClientRecord(updated.id, updated);
+      setClient((prev) => ({
+        ...data,
+        properties: prev?.properties || [],
+      }));
+      setModal(null);
+    } catch (err) {
+      alert(getErrorMessage(err, 'Erro ao atualizar cliente.'));
     }
-
-    setClient((prev) => ({
-      ...mapRowToClient(data as DbClientRow),
-      properties: prev?.properties || [],
-    }));
-
-    setModal(null);
   };
 
+
   const saveProperty = async (prop: Property): Promise<void> => {
-    const { data: userData, error: userError } = await supabase.auth.getUser();
-
-    if (userError || !userData.user) {
-      alert('Usuário não autenticado.');
-      return;
-    }
-
     try {
-      const base64Fotos = prop.fotos?.filter((f) => f.startsWith('data:')) || [];
-      const urlFotos = prop.fotos?.filter((f) => !f.startsWith('data:')) || [];
-
-      let uploadedUrls: string[] = [];
-      if (base64Fotos.length > 0) {
-        const propertyId = selectedProp?.id || `temp_${Date.now()}`;
-        uploadedUrls = await uploadPhotos(base64Fotos, propertyId);
-      }
-
-      const allFotos = [...uploadedUrls, ...urlFotos];
-
-      const payload = {
-        user_id: userData.user.id,
-        client_id: client.id,
-        titulo: prop.titulo,
-        endereco: prop.observacoes || null,
-        preco: prop.preco ?? 0,
-        area: prop.tamanho ?? null,
-        quartos: prop.quartos ?? null,
-        suites: prop.suites ?? null,
-        banheiros: prop.banheiros ?? null,
-        vagas: prop.vagas ?? null,
-        tipo_imovel: prop.tipoImovel || null,
-        tipo_vaga_cobertura: prop.tipoVagaCobertura || null,
-        tipo_vaga_modelo: prop.tipoVagaModelo || null,
-        andar: prop.andar ?? null,
-        condominio: prop.condominio ?? null,
-        predio_novo: prop.predioNovo || null,
-        reformado: prop.reformado || null,
-        mobiliado: prop.mobiliado ?? false,
-        varanda: prop.varanda ?? false,
-        area_lazer: prop.areaLazer ?? false,
-        aceita_pet: prop.aceitaPet ?? false,
-        aceita_financiamento: prop.aceitaFinanciamento || null,
-        bairro: prop.bairro || null,
-        descricao: prop.descricao || null,
-        favorito: prop.favorito ?? false,
-        avaliacao: prop.rating ?? 0,
-        fotos: allFotos,
-        archived: false,
-      };
-
-      if (selectedProp?.id) {
-        const fotosAntigasRemover =
-          selectedProp.fotos?.filter((f) => !allFotos.includes(f)) || [];
-
-        if (fotosAntigasRemover.length > 0) {
-          try {
-            await deletePhotos(fotosAntigasRemover);
-          } catch (error) {
-            console.error('Erro ao deletar fotos antigas:', error);
-          }
-        }
-
-        const { error } = await supabase
-          .from('properties')
-          .update(payload)
-          .eq('id', selectedProp.id)
-          .eq('user_id', userData.user.id);
-
-        if (error) {
-          alert(`Erro ao atualizar imóvel: ${error.message}`);
-          return;
-        }
-      } else {
-        const { error } = await supabase.from('properties').insert(payload);
-
-        if (error) {
-          alert(`Erro ao salvar imóvel: ${error.message}`);
-          return;
-        }
-      }
-
+      await savePropertyService({
+        input: prop,
+        clientId: client.id,
+        existing: selectedProp,
+      });
       await recarregarImoveis();
       setModal(null);
       setSelectedProp(null);
-    } catch (error) {
-      console.error('Erro ao salvar propriedade:', error);
-      alert(
-        `Erro ao processar fotos: ${
-          error instanceof Error ? error.message : 'Erro desconhecido'
-        }`
-      );
+    } catch (err) {
+      alert(getErrorMessage(err, 'Erro ao salvar imóvel.'));
     }
   };
+
 
   const handleRating = async (prop: Property, rating: number): Promise<void> => {
-    const { data: userData, error: userError } = await supabase.auth.getUser();
-
-    if (userError || !userData.user) {
-      alert('Usuário não autenticado.');
-      return;
+    try {
+      await propertiesRepo.updatePropertyRating(prop.id, rating);
+      await recarregarImoveis();
+    } catch (err) {
+      alert(getErrorMessage(err, 'Erro ao salvar avaliação.'));
     }
-
-    const { error } = await supabase
-      .from('properties')
-      .update({ avaliacao: rating })
-      .eq('id', prop.id)
-      .eq('user_id', userData.user.id);
-
-    if (error) {
-      alert(`Erro ao salvar avaliação: ${error.message}`);
-      return;
-    }
-
-    await recarregarImoveis();
   };
+
 
   const deleteProperty = async (): Promise<void> => {
     if (!selectedProp) return;
-
-    const { data: userData, error: userError } = await supabase.auth.getUser();
-
-    if (userError || !userData.user) {
-      alert('Usuário não autenticado.');
-      return;
-    }
-
     try {
-      if (selectedProp.fotos && selectedProp.fotos.length > 0) {
-        try {
-          await deletePhotos(selectedProp.fotos);
-        } catch (error) {
-          console.error('Erro ao deletar fotos:', error);
-        }
-      }
-
-      const { error } = await supabase
-        .from('properties')
-        .delete()
-        .eq('id', selectedProp.id)
-        .eq('user_id', userData.user.id);
-
-      if (error) {
-        alert(`Erro ao excluir imóvel: ${error.message}`);
-        return;
-      }
-
+      await removeProperty(selectedProp);
       await recarregarImoveis();
       setModal(null);
       setSelectedProp(null);
-    } catch (error) {
-      console.error('Erro ao deletar propriedade:', error);
-      alert(
-        `Erro ao deletar imóvel: ${
-          error instanceof Error ? error.message : 'Erro desconhecido'
-        }`
-      );
+    } catch (err) {
+      alert(getErrorMessage(err, 'Erro ao excluir imóvel.'));
     }
   };
+
 
   const archiveClientAndProperties = async (): Promise<void> => {
-    const { data: userData, error: userError } = await supabase.auth.getUser();
-
-    if (userError || !userData.user) {
-      alert('Usuário não autenticado.');
-      return;
-    }
-
     try {
-      const { data: propertiesData, error: propertiesError } = await supabase
-        .from('properties')
-        .select('id, fotos')
-        .eq('client_id', client.id)
-        .eq('user_id', userData.user.id);
-
-      if (propertiesError) {
-        alert(`Erro ao buscar imóveis do cliente: ${propertiesError.message}`);
-        return;
-      }
-
-      const fotosParaRemover = (propertiesData || []).flatMap((property) =>
-        Array.isArray(property.fotos) ? property.fotos : []
-      );
-
-      if (fotosParaRemover.length > 0) {
-        try {
-          await deletePhotos(fotosParaRemover);
-        } catch (error) {
-          console.error('Erro ao apagar fotos:', error);
-        }
-      }
-
-      const { error: updatePropsError } = await supabase
-        .from('properties')
-        .update({ archived: true, fotos: [] })
-        .eq('client_id', client.id)
-        .eq('user_id', userData.user.id);
-
-      if (updatePropsError) {
-        alert(`Erro ao arquivar imóveis: ${updatePropsError.message}`);
-        return;
-      }
-
-      const { error: updateClientError } = await supabase
-        .from('clients')
-        .update({ archived: true })
-        .eq('id', client.id)
-        .eq('user_id', userData.user.id);
-
-      if (updateClientError) {
-        alert(`Erro ao arquivar cliente: ${updateClientError.message}`);
-        return;
-      }
-
+      await archiveClientWithProperties(client.id);
       setShowArchiveWarning(false);
       await recarregarClienteCompleto();
-    } catch (error) {
-      console.error('Erro ao arquivar cliente:', error);
-      alert(
-        `Erro ao arquivar cliente: ${
-          error instanceof Error ? error.message : 'Erro desconhecido'
-        }`
-      );
+    } catch (err) {
+      alert(getErrorMessage(err, 'Erro ao arquivar cliente.'));
     }
   };
+
 
   const restoreClientAndProperties = async (): Promise<void> => {
-    const { data: userData, error: userError } = await supabase.auth.getUser();
-
-    if (userError || !userData.user) {
-      alert('Usuário não autenticado.');
-      return;
+    try {
+      await restoreClientWithProperties(client.id);
+      await recarregarClienteCompleto();
+    } catch (err) {
+      alert(getErrorMessage(err, 'Erro ao desarquivar cliente.'));
     }
-
-    const { error: restorePropsError } = await supabase
-      .from('properties')
-      .update({ archived: false })
-      .eq('client_id', client.id)
-      .eq('user_id', userData.user.id);
-
-    if (restorePropsError) {
-      alert(`Erro ao desarquivar imóveis: ${restorePropsError.message}`);
-      return;
-    }
-
-    const { error: restoreClientError } = await supabase
-      .from('clients')
-      .update({ archived: false })
-      .eq('id', client.id)
-      .eq('user_id', userData.user.id);
-
-    if (restoreClientError) {
-      alert(`Erro ao desarquivar cliente: ${restoreClientError.message}`);
-      return;
-    }
-
-    await recarregarClienteCompleto();
   };
+
 
   const handleArchiveRequest = (): void => {
     if (client.archived) {

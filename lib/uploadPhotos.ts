@@ -1,113 +1,159 @@
 import { supabase } from './supabase';
+import { AppError } from '@/lib/errors';
+import { logger } from '@/lib/logger';
+import {
+  ALLOWED_IMAGE_MIME,
+  MAX_UPLOAD_BYTES,
+  base64ImageSchema,
+} from '@/schemas/upload';
 
-const BUCKET_NAME = 'property-photos';
+export const BUCKET_NAME = 'property-photos';
 
-/**
- * Converte uma string base64 em Blob
- */
 function base64ToBlob(base64: string, mimeType: string = 'image/jpeg'): Blob {
-  const byteCharacters = atob(base64.split(',')[1]);
+  const parts = base64.split(',');
+  if (parts.length < 2) {
+    throw new AppError('UPLOAD', 'Imagem base64 inválida.');
+  }
+  const byteCharacters = atob(parts[1]);
   const byteNumbers = new Array(byteCharacters.length);
   for (let i = 0; i < byteCharacters.length; i++) {
     byteNumbers[i] = byteCharacters.charCodeAt(i);
   }
   const byteArray = new Uint8Array(byteNumbers);
+  if (byteArray.byteLength > MAX_UPLOAD_BYTES) {
+    throw new AppError(
+      'UPLOAD',
+      `Arquivo excede o limite de ${MAX_UPLOAD_BYTES / (1024 * 1024)}MB.`
+    );
+  }
   return new Blob([byteArray], { type: mimeType });
 }
 
+function detectMime(base64: string): string {
+  const match = /^data:([^;]+);base64,/i.exec(base64);
+  return match?.[1]?.toLowerCase() || 'image/jpeg';
+}
+
+function assertAllowedMime(mime: string): void {
+  const ok =
+    ALLOWED_IMAGE_MIME.includes(mime as (typeof ALLOWED_IMAGE_MIME)[number]) ||
+    mime.startsWith('image/');
+  if (!ok || mime.includes('svg')) {
+    throw new AppError(
+      'UPLOAD',
+      'Tipo de imagem não permitido. Use JPEG, PNG, WebP ou GIF.'
+    );
+  }
+}
+
 /**
- * Faz upload de uma foto base64 para o Supabase Storage
- * Retorna a URL pública da foto
+ * Upload de uma foto base64 para o Supabase Storage.
+ * Path: property-photos/{propertyId}/{propertyId}-{index}-{ts}.jpg
  */
 export async function uploadPhoto(
   base64: string,
   propertyId: string,
   index: number
 ): Promise<string> {
+  const parsed = base64ImageSchema.safeParse(base64);
+  if (!parsed.success) {
+    throw new AppError('UPLOAD', parsed.error.issues[0]?.message || 'Imagem inválida.');
+  }
+
+  const mime = detectMime(base64);
+  assertAllowedMime(mime);
+
+  const ext =
+    mime === 'image/png'
+      ? 'png'
+      : mime === 'image/webp'
+        ? 'webp'
+        : mime === 'image/gif'
+          ? 'gif'
+          : 'jpg';
+
   try {
     const timestamp = Date.now();
-    const filename = `${propertyId}-${index}-${timestamp}.jpg`;
-    const folder = `property-photos/${propertyId}`;
+    const safeProp = propertyId.replace(/[^a-zA-Z0-9_-]/g, '_');
+    const filename = `${safeProp}-${index}-${timestamp}.${ext}`;
+    const folder = `property-photos/${safeProp}`;
     const filepath = `${folder}/${filename}`;
 
-    const blob = base64ToBlob(base64, 'image/jpeg');
+    const blob = base64ToBlob(base64, mime);
 
-    const { error } = await supabase.storage
-      .from(BUCKET_NAME)
-      .upload(filepath, blob, {
-        contentType: 'image/jpeg',
-        upsert: false,
-      });
+    const { error } = await supabase.storage.from(BUCKET_NAME).upload(filepath, blob, {
+      contentType: mime,
+      upsert: false,
+    });
 
     if (error) {
-      throw new Error(`Erro ao fazer upload: ${error.message}`);
+      throw new AppError('UPLOAD', `Erro ao fazer upload: ${error.message}`, {
+        cause: error,
+      });
     }
 
-    // Obter a URL pública
-    const { data } = supabase.storage
-      .from(BUCKET_NAME)
-      .getPublicUrl(filepath);
-
+    const { data } = supabase.storage.from(BUCKET_NAME).getPublicUrl(filepath);
     return data.publicUrl;
   } catch (error) {
-    console.error('Erro ao fazer upload de foto:', error);
+    logger.error('uploadPhoto failed', error, { propertyId, index }, 'uploadPhotos');
     throw error;
   }
 }
 
-/**
- * Faz upload de múltiplas fotos base64 para o Supabase Storage
- * Retorna um array com as URLs públicas
- */
 export async function uploadPhotos(
   base64Array: string[],
   propertyId: string
 ): Promise<string[]> {
   try {
-    const urls = await Promise.all(
+    return await Promise.all(
       base64Array.map((base64, index) => uploadPhoto(base64, propertyId, index))
     );
-    return urls;
   } catch (error) {
-    console.error('Erro ao fazer upload de fotos:', error);
+    logger.error('uploadPhotos failed', error, { propertyId }, 'uploadPhotos');
     throw error;
   }
 }
 
-/**
- * Deleta uma foto do Supabase Storage
- */
 export async function deletePhoto(photoUrl: string): Promise<void> {
   try {
-    // Extrair o caminho do arquivo da URL pública
     const url = new URL(photoUrl);
-    const filepath = url.pathname.split(`/storage/v1/object/public/${BUCKET_NAME}/`)[1];
+    const filepath = url.pathname.split(
+      `/storage/v1/object/public/${BUCKET_NAME}/`
+    )[1];
 
     if (!filepath) {
-      throw new Error('URL de foto inválida');
+      throw new AppError('UPLOAD', 'URL de foto inválida');
     }
 
-    const { error } = await supabase.storage
-      .from(BUCKET_NAME)
-      .remove([filepath]);
+    const { error } = await supabase.storage.from(BUCKET_NAME).remove([filepath]);
 
     if (error) {
-      throw new Error(`Erro ao deletar foto: ${error.message}`);
+      throw new AppError('UPLOAD', `Erro ao deletar foto: ${error.message}`, {
+        cause: error,
+      });
     }
   } catch (error) {
-    console.error('Erro ao deletar foto:', error);
+    logger.error('deletePhoto failed', error, undefined, 'uploadPhotos');
     throw error;
   }
 }
 
-/**
- * Deleta múltiplas fotos do Supabase Storage
- */
 export async function deletePhotos(photoUrls: string[]): Promise<void> {
   try {
     await Promise.all(photoUrls.map(deletePhoto));
   } catch (error) {
-    console.error('Erro ao deletar fotos:', error);
+    logger.error('deletePhotos failed', error, undefined, 'uploadPhotos');
     throw error;
+  }
+}
+
+/** Valida File do input antes de processar no browser. */
+export function assertUploadFile(file: File): void {
+  assertAllowedMime(file.type || 'application/octet-stream');
+  if (file.size > MAX_UPLOAD_BYTES) {
+    throw new AppError(
+      'UPLOAD',
+      `Arquivo "${file.name}" excede ${MAX_UPLOAD_BYTES / (1024 * 1024)}MB.`
+    );
   }
 }

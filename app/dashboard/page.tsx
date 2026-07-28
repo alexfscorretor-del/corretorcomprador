@@ -6,97 +6,8 @@ import Sidebar from '@/components/Sidebar';
 import DashboardStats from '@/components/DashboardStats';
 import { supabase } from '@/lib/supabase';
 import { Client } from '@/types';
+import * as clientsRepo from '@/repositories/clientsRepository';
 import { Clock } from 'lucide-react';
-
-type DbClientRow = {
-  id: string;
-  user_id: string;
-  created_at: string;
-  nome: string;
-  telefone: string | null;
-  email: string | null;
-  cpf: string | null;
-  aniversario: string | null;
-  sexo: string | null;
-  estado_civil: string | null;
-  tem_filhos: boolean | null;
-  quant_filhos: number | null;
-  prazo: string | null;
-  tipo_imovel: string | null;
-  preco_min: number | null;
-  preco_max: number | null;
-  bairro: string | null;
-  bairros_secundarios: string | null;
-  tamanho: number | null;
-  quartos_min: number | null;
-  suites_min: number | null;
-  banheiros_min: number | null;
-  vagas_min: number | null;
-  tipo_vaga: string | null;
-  condominio_max: number | null;
-  pref_andar: boolean | null;
-  andar_apartir: number | null;
-  novo: string | null;
-  reformado: string | null;
-  aceita_financiamento: string | null;
-  mobiliado: string | null;
-  varanda: string | null;
-  area_lazer: string | null;
-  aceita_pet: string | null;
-  archived: boolean | null;
-  status_negocio: string | null;
-  observacoes: string | null;
-};
-
-function mapRowToClient(row: DbClientRow): Client {
-  return {
-    id: row.id,
-    createdAt: row.created_at,
-    nome: row.nome ?? '',
-    telefone: row.telefone ?? '',
-    email: row.email ?? '',
-    cpf: row.cpf ?? '',
-    aniversario: row.aniversario ?? '',
-    sexo: row.sexo ?? '',
-    estadoCivil: row.estado_civil ?? '',
-    temFilhos: row.tem_filhos ?? false,
-    quantFilhos: row.quant_filhos ?? 0,
-    prazo: row.prazo ?? '',
-    tipoImovel: row.tipo_imovel ?? '',
-    precoMin: row.preco_min ?? undefined,
-    precoMax: row.preco_max ?? undefined,
-    orcamentoMin: row.preco_min ?? undefined,
-    orcamentoMax: row.preco_max ?? undefined,
-    bairro: row.bairro ?? '',
-    bairrosSecundarios: row.bairros_secundarios ?? '',
-    tamanho: row.tamanho ?? undefined,
-    quartosMin: row.quartos_min ?? undefined,
-    suitesMin: row.suites_min ?? undefined,
-    banheirosMin: row.banheiros_min ?? undefined,
-    vagasMin: row.vagas_min ?? undefined,
-    tipoVaga: row.tipo_vaga ?? '',
-    condominioMax: row.condominio_max ?? undefined,
-    prefAndar: row.pref_andar ?? false,
-    andarApartir: row.andar_apartir ?? null,
-    novo: (row.novo as Client['novo']) ?? 'indiferente',
-    reformado: (row.reformado as Client['reformado']) ?? 'indiferente',
-    aceitaFinanciamento:
-      (row.aceita_financiamento as Client['aceitaFinanciamento']) ?? 'indiferente',
-    mobiliado: (row.mobiliado as Client['mobiliado']) ?? 'indiferente',
-    varanda: (row.varanda as Client['varanda']) ?? 'indiferente',
-    areaLazer: (row.area_lazer as Client['areaLazer']) ?? 'indiferente',
-    aceitaPet: (row.aceita_pet as Client['aceitaPet']) ?? 'indiferente',
-    archived: row.archived === true,
-    statusNegocio:
-      row.status_negocio === 'fechou' ||
-      row.status_negocio === 'nao_fechou' ||
-      row.status_negocio === 'em_andamento'
-        ? row.status_negocio
-        : 'em_andamento',
-    observacoes: row.observacoes ?? '',
-    properties: [],
-  };
-}
 
 const statusLabel: Record<string, { label: string; color: string }> = {
   fechou: { label: 'Fechou', color: 'text-emerald-400' },
@@ -118,21 +29,15 @@ export default function DashboardPage() {
         return;
       }
 
-      const { data, error } = await supabase
-        .from('clients')
-        .select('*')
-        .eq('user_id', userData.user.id)
-        .order('created_at', { ascending: false });
-
-      if (error) {
-        console.error('Erro ao carregar dados do dashboard:', error);
+      try {
+        const mapped = await clientsRepo.listClients({ archived: false });
+        setClients(mapped);
+      } catch (error) {
+        console.error(error);
+        setClients([]);
+      } finally {
         setLoading(false);
-        return;
       }
-
-      const mapped = (data || []).map((row) => mapRowToClient(row as DbClientRow));
-      setClients(mapped);
-      setLoading(false);
     }
 
     void load();

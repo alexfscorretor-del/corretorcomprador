@@ -1,36 +1,98 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Corretor Pro
 
-## Getting Started
+SaaS para corretores de imóveis: gestão de **clientes compradores**, **imóveis** vinculados, **compatibilidade** preferência×oferta, **catálogo/PDF**, **upload de fotos** e **administração de convites** de corretores.
 
-First, run the development server:
+## Stack
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+- **Next.js** 16 (App Router) + **React** 19 + **TypeScript**
+- **Tailwind CSS** 4
+- **Supabase** (Auth, Postgres, Storage)
+- **Zod** (validação)
+- **Vitest** (testes unitários)
+
+## Funcionalidades principais
+
+- Autenticação (login, registro por convite, recuperação e redefinição de senha)
+- Dashboard com estatísticas
+- CRUD de clientes + arquivamento
+- CRUD de imóveis por cliente (favorito, avaliação, ordenação)
+- Score de compatibilidade cliente × imóvel
+- Geração de catálogo HTML/PDF no browser
+- Perfil do corretor
+- Admin de allowlist (`broker_invites`)
+
+## Estrutura do projeto
+
+```
+app/                 # rotas (App Router)
+components/          # UI (forms seccionados em components/forms/)
+schemas/             # Zod
+validators/          # helpers de validação
+services/            # orquestração
+repositories/        # acesso a dados Supabase
+server/              # código server-only (SSR auth)
+lib/                 # supabase client, env, errors, logger, parsers, formatters
+types/               # tipos de domínio
+supabase/            # migrations e snippets SQL
+docs/                # documentação técnica
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+## Setup local
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+### Pré-requisitos
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+- Node.js 20+
+- Projeto Supabase com schema/auth/storage configurados (ver `docs/database.md`)
 
-## Learn More
+### Variáveis de ambiente
 
-To learn more about Next.js, take a look at the following resources:
+Copie `.env.example` para `.env.local`:
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+| Variável | Escopo | Descrição |
+|----------|--------|-----------|
+| `NEXT_PUBLIC_SUPABASE_URL` | public | URL do projeto Supabase |
+| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | public | Chave anon (client) |
+| `SUPABASE_SERVICE_ROLE_KEY` | **server only** | Service role — nunca expor ao browser |
+| `ADMIN_EMAIL` | server | E-mail do admin de convites (default documentado no código se omitido) |
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+### Comandos
 
-## Deploy on Vercel
+```bash
+npm install
+npm run dev      # desenvolvimento — http://localhost:3000
+npm run lint     # ESLint
+npm test         # Vitest
+npm run build    # build de produção
+npm start        # serve o build
+```
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+## Segurança (resumo)
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+- `SUPABASE_SERVICE_ROLE_KEY` só em código server-only (`lib/supabase-admin.ts` + API admin).
+- Envs validadas em `lib/env.ts` (falha explícita se faltar crítica no server).
+- Middleware protege rotas privadas por sessão.
+- Upload com restrição de MIME/tamanho no app; **policies RLS/Storage no Supabase são obrigatórias** e não são totalmente garantidas só pelo repo.
+- Registro de corretor depende de convite (`is_broker_invited`).
+
+Detalhes: `docs/architecture.md`, `docs/database.md`.
+
+## Documentação
+
+| Doc | Conteúdo |
+|-----|----------|
+| [docs/architecture.md](./docs/architecture.md) | Arquitetura, auth, upload, camadas |
+| [docs/database.md](./docs/database.md) | Entidades, tenancy, riscos de schema |
+| [docs/development.md](./docs/development.md) | Convenções de código e testes |
+| [docs/refactor-assessment.md](./docs/refactor-assessment.md) | Baseline da refatoração |
+| [docs/refactor-final-report.md](./docs/refactor-final-report.md) | Relatório final por fase |
+
+## Roadmap técnico (resumido)
+
+- Completar migrations RLS versionadas no repo
+- Alinhar bucket Storage e policies por `user_id`
+- Migrar mutações críticas para Server Actions quando RLS exigir defense-in-depth
+- Ampliar cobertura de testes de repositórios (com mocks)
+
+## Licença
+
+Privado — uso interno do projeto.

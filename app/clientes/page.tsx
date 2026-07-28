@@ -7,101 +7,18 @@ import ClientCard from '@/components/ClientCard';
 import ClientForm from '@/components/ClientForm';
 import ConfirmModal from '@/components/ConfirmModal';
 import { supabase } from '@/lib/supabase';
-import { deletePhotos } from '@/lib/uploadPhotos';
 import { Client } from '@/types';
 import { Plus, Search } from 'lucide-react';
+import * as clientsRepo from '@/repositories/clientsRepository';
+import {
+  saveClient as saveClientService,
+  removeClient,
+  archiveClientWithProperties,
+  restoreClientWithProperties,
+} from '@/services/clientService';
+import { getErrorMessage } from '@/lib/errors';
 
 type Modal = 'new' | 'edit' | 'delete' | null;
-
-type DbClientRow = {
-  id: string;
-  user_id: string;
-  created_at: string;
-  nome: string;
-  telefone: string | null;
-  email: string | null;
-  cpf: string | null;
-  aniversario: string | null;
-  sexo: string | null;
-  estado_civil: string | null;
-  tem_filhos: boolean | null;
-  quant_filhos: number | null;
-  prazo: string | null;
-  tipo_imovel: string | null;
-  preco_min: number | null;
-  preco_max: number | null;
-  bairro: string | null;
-  bairros_secundarios: string | null;
-  tamanho: number | null;
-  quartos_min: number | null;
-  suites_min: number | null;
-  banheiros_min: number | null;
-  vagas_min: number | null;
-  tipo_vaga: string | null;
-  condominio_max: number | null;
-  pref_andar: boolean | null;
-  andar_apartir: number | null;
-  novo: string | null;
-  reformado: string | null;
-  aceita_financiamento: string | null;
-  mobiliado: string | null;
-  varanda: string | null;
-  area_lazer: string | null;
-  aceita_pet: string | null;
-  archived: boolean | null;
-  status_negocio: string | null;
-  observacoes: string | null;
-};
-
-function mapRowToClient(row: DbClientRow): Client {
-  return {
-    id: row.id,
-    createdAt: row.created_at,
-    nome: row.nome ?? '',
-    telefone: row.telefone ?? '',
-    email: row.email ?? '',
-    cpf: row.cpf ?? '',
-    aniversario: row.aniversario ?? '',
-    sexo: row.sexo ?? '',
-    estadoCivil: row.estado_civil ?? '',
-    temFilhos: row.tem_filhos ?? false,
-    quantFilhos: row.quant_filhos ?? 0,
-    prazo: row.prazo ?? '',
-    tipoImovel: row.tipo_imovel ?? '',
-    precoMin: row.preco_min ?? undefined,
-    precoMax: row.preco_max ?? undefined,
-    orcamentoMin: row.preco_min ?? undefined,
-    orcamentoMax: row.preco_max ?? undefined,
-    bairro: row.bairro ?? '',
-    bairrosSecundarios: row.bairros_secundarios ?? '',
-    tamanho: row.tamanho ?? undefined,
-    quartosMin: row.quartos_min ?? undefined,
-    suitesMin: row.suites_min ?? undefined,
-    banheirosMin: row.banheiros_min ?? undefined,
-    vagasMin: row.vagas_min ?? undefined,
-    tipoVaga: row.tipo_vaga ?? '',
-    condominioMax: row.condominio_max ?? undefined,
-    prefAndar: row.pref_andar ?? false,
-    andarApartir: row.andar_apartir ?? null,
-    novo: (row.novo as Client['novo']) ?? 'indiferente',
-    reformado: (row.reformado as Client['reformado']) ?? 'indiferente',
-    aceitaFinanciamento:
-      (row.aceita_financiamento as Client['aceitaFinanciamento']) ?? 'indiferente',
-    mobiliado: (row.mobiliado as Client['mobiliado']) ?? 'indiferente',
-    varanda: (row.varanda as Client['varanda']) ?? 'indiferente',
-    areaLazer: (row.area_lazer as Client['areaLazer']) ?? 'indiferente',
-    aceitaPet: (row.aceita_pet as Client['aceitaPet']) ?? 'indiferente',
-    archived: row.archived === true,
-    statusNegocio:
-      row.status_negocio === 'fechou' ||
-      row.status_negocio === 'nao_fechou' ||
-      row.status_negocio === 'em_andamento'
-        ? row.status_negocio
-        : 'em_andamento',
-    observacoes: row.observacoes ?? '',
-    properties: [],
-  };
-}
 
 export default function ClientesPage() {
   const router = useRouter();
@@ -129,211 +46,68 @@ export default function ClientesPage() {
 
   const loadClients = async () => {
     setLoading(true);
-
-    const { data: userData, error: userError } = await supabase.auth.getUser();
-
-    if (userError || !userData.user) {
-      router.push('/login');
-      return;
-    }
-
-    const { data, error } = await supabase
-      .from('clients')
-      .select('*')
-      .eq('user_id', userData.user.id)
-      .or('archived.is.null,archived.eq.false')
-      .order('created_at', { ascending: false });
-
-    if (error) {
-      console.error('Erro ao carregar clientes:', error);
+    try {
+      const { data: userData, error: userError } = await supabase.auth.getUser();
+      if (userError || !userData.user) {
+        router.push('/login');
+        return;
+      }
+      const mapped = await clientsRepo.listClients({ archived: false });
+      setClients(mapped);
+    } catch (err) {
+      console.error('Erro ao carregar clientes:', err);
       setClients([]);
+    } finally {
       setLoading(false);
-      return;
     }
-
-    const mapped = (data || []).map((row) => mapRowToClient(row as DbClientRow));
-    setClients(mapped);
-    setLoading(false);
   };
+
 
   useEffect(() => {
     void loadClients();
   }, []);
 
   const saveClient = async (client: Client): Promise<void> => {
-    const { data: userData, error: userError } = await supabase.auth.getUser();
-
-    if (userError || !userData.user) {
-      alert('Usuário não autenticado.');
-      return;
+    try {
+      await saveClientService(client, selected?.id);
+      setModal(null);
+      setSelected(null);
+      await loadClients();
+    } catch (err) {
+      alert(getErrorMessage(err, 'Erro ao salvar cliente.'));
     }
-
-    const payload = {
-      user_id: userData.user.id,
-      nome: client.nome,
-      telefone: client.telefone || null,
-      email: client.email || null,
-      cpf: client.cpf || null,
-      aniversario: client.aniversario || null,
-      sexo: client.sexo || null,
-      estado_civil: client.estadoCivil || null,
-      tem_filhos: client.temFilhos ?? false,
-      quant_filhos: client.quantFilhos ?? 0,
-      prazo: client.prazo || null,
-      tipo_imovel: Array.isArray(client.tipoImovel)
-        ? client.tipoImovel.join(', ')
-        : client.tipoImovel || null,
-      preco_min: client.precoMin ?? client.orcamentoMin ?? null,
-      preco_max: client.precoMax ?? client.orcamentoMax ?? null,
-      bairro: client.bairro || null,
-      bairros_secundarios: client.bairrosSecundarios || null,
-      tamanho: client.tamanho ?? null,
-      quartos_min: client.quartosMin ?? null,
-      suites_min: client.suitesMin ?? null,
-      banheiros_min: client.banheirosMin ?? null,
-      vagas_min: client.vagasMin ?? null,
-      tipo_vaga: client.tipoVaga || null,
-      condominio_max: client.condominioMax ?? null,
-      pref_andar: client.prefAndar ?? false,
-      andar_apartir: client.prefAndar ? (client.andarApartir ?? null) : null,
-      novo: client.novo || 'indiferente',
-      reformado: client.reformado || 'indiferente',
-      aceita_financiamento: client.aceitaFinanciamento || 'indiferente',
-      mobiliado: client.mobiliado || 'indiferente',
-      varanda: client.varanda || 'indiferente',
-      area_lazer: client.areaLazer || 'indiferente',
-      aceita_pet: client.aceitaPet || 'indiferente',
-      archived: client.archived ?? false,
-      status_negocio: client.statusNegocio ?? 'em_andamento',
-      observacoes: client.observacoes || null,
-    };
-
-    if (selected?.id) {
-      const { error } = await supabase
-        .from('clients')
-        .update(payload)
-        .eq('id', selected.id)
-        .eq('user_id', userData.user.id);
-
-      if (error) {
-        alert(`Erro ao atualizar cliente: ${error.message}`);
-        return;
-      }
-    } else {
-      const { error } = await supabase.from('clients').insert(payload);
-
-      if (error) {
-        alert(`Erro ao criar cliente: ${error.message}`);
-        return;
-      }
-    }
-
-    setModal(null);
-    setSelected(null);
-    await loadClients();
   };
+
 
   const deleteClient = async (): Promise<void> => {
     if (!selected) return;
-
-    const { data: userData, error: userError } = await supabase.auth.getUser();
-
-    if (userError || !userData.user) {
-      alert('Usuário não autenticado.');
-      return;
+    try {
+      await removeClient(selected.id);
+      setModal(null);
+      setSelected(null);
+      await loadClients();
+    } catch (err) {
+      alert(getErrorMessage(err, 'Erro ao excluir cliente.'));
     }
-
-    const { error } = await supabase
-      .from('clients')
-      .delete()
-      .eq('id', selected.id)
-      .eq('user_id', userData.user.id);
-
-    if (error) {
-      alert(`Erro ao excluir cliente: ${error.message}`);
-      return;
-    }
-
-    setModal(null);
-    setSelected(null);
-    await loadClients();
   };
+
 
   const executeArchiveFlow = async (client: Client): Promise<void> => {
-    const { data: userData, error: userError } = await supabase.auth.getUser();
-
-    if (userError || !userData.user) {
-      alert('Usuário não autenticado.');
-      return;
-    }
-
-    if (client.archived) {
-      const { error } = await supabase
-        .from('clients')
-        .update({ archived: false })
-        .eq('id', client.id)
-        .eq('user_id', userData.user.id);
-
-      if (error) {
-        alert(`Erro ao desarquivar cliente: ${error.message}`);
-        return;
+    try {
+      if (client.archived) {
+        await restoreClientWithProperties(client.id);
+      } else {
+        await archiveClientWithProperties(client.id);
       }
-
       setShowArchiveWarning(false);
       setArchiveTarget(null);
+      setArchiveNoticeChecked(false);
       await loadClients();
-      return;
+    } catch (err) {
+      alert(getErrorMessage(err, 'Erro ao arquivar/desarquivar cliente.'));
     }
-
-    const { data: propertiesData, error: propertiesError } = await supabase
-      .from('properties')
-      .select('id, fotos')
-      .eq('client_id', client.id)
-      .eq('user_id', userData.user.id);
-
-    if (propertiesError) {
-      alert(`Erro ao buscar imóveis do cliente: ${propertiesError.message}`);
-      return;
-    }
-
-    const fotosParaApagar = (propertiesData || []).flatMap((property) =>
-      Array.isArray(property.fotos) ? property.fotos : []
-    );
-
-    if (fotosParaApagar.length > 0) {
-      try {
-        await deletePhotos(fotosParaApagar);
-      } catch (error) {
-        console.error('Erro ao apagar fotos do storage:', error);
-      }
-    }
-
-    const { error: updatePropsError } = await supabase
-      .from('properties')
-      .update({ fotos: [], archived: true })
-      .eq('client_id', client.id)
-      .eq('user_id', userData.user.id);
-
-    if (updatePropsError) {
-      alert(`Erro ao atualizar imóveis do cliente: ${updatePropsError.message}`);
-      return;
-    }
-
-    const { error: updateClientError } = await supabase
-      .from('clients')
-      .update({ archived: true })
-      .eq('id', client.id)
-      .eq('user_id', userData.user.id);
-
-    if (updateClientError) {
-      alert(`Erro ao arquivar cliente: ${updateClientError.message}`);
-      return;
-    }
-
-    setShowArchiveWarning(false);
-    setArchiveTarget(null);
-    await loadClients();
   };
+
 
   const handleArchiveClick = (client: Client): void => {
     setArchiveTarget(client);

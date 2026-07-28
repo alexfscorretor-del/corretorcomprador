@@ -15,7 +15,7 @@ type Invite = {
   used_at: string | null;
 };
 
-const ADMIN_EMAIL = 'alexfs.corretor@gmail.com';
+const ADMIN_EMAIL = (process.env.NEXT_PUBLIC_ADMIN_EMAIL || 'alexfs.corretor@gmail.com').toLowerCase();
 
 export default function AdminPage() {
   const router = useRouter();
