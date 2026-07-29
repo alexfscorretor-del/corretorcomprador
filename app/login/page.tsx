@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
+import { loginSchema, registerSchema } from '@/schemas/auth';
 
 type Mode = 'login' | 'register' | 'recover';
 
@@ -18,6 +19,13 @@ export default function LoginPage() {
     e.preventDefault();
     setLoading(true);
     setMessage('');
+
+    const parsed = loginSchema.safeParse({ email, password });
+    if (!parsed.success) {
+      setLoading(false);
+      setMessage(parsed.error.issues[0]?.message || 'Dados inválidos.');
+      return;
+    }
 
     const { data, error } = await supabase.auth.signInWithPassword({
       email: email.trim().toLowerCase(),
@@ -36,6 +44,11 @@ export default function LoginPage() {
       return;
     }
 
+    // CRÍTICO: router.refresh() força o Next.js a revalidar o middleware
+    // com os cookies SSR recém-gravados antes de navegar para /dashboard.
+    // Sem isso, o middleware ainda enxerga o usuário como não autenticado
+    // e redireciona de volta para /login silenciosamente.
+    router.refresh();
     router.push('/dashboard');
   }
 
@@ -44,23 +57,47 @@ export default function LoginPage() {
     setLoading(true);
     setMessage('');
 
-    const normalizedEmail = email.trim().toLowerCase();
-
-    const res = await fetch('/api/auth/register', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ email: normalizedEmail, password }),
-    });
-
-    const json = await res.json();
-
-    setLoading(false);
-
-    if (!res.ok) {
-      setMessage(json.error || 'Erro ao realizar cadastro.');
+    const parsed = registerSchema.safeParse({ email, password });
+    if (!parsed.success) {
+      setLoading(false);
+      setMessage(parsed.error.issues[0]?.message || 'Dados inválidos.');
       return;
     }
 
+    const normalizedEmail = email.trim().toLowerCase();
+
+    const { data: invited, error: inviteError } = await supabase.rpc('is_broker_invited', {
+      p_email: normalizedEmail,
+    });
+
+    if (inviteError) {
+      setLoading(false);
+      setMessage(`Erro ao validar liberação: ${inviteError.message}`);
+      return;
+    }
+
+    if (!invited) {
+      setLoading(false);
+      setMessage('Este e-mail não está liberado para cadastro.');
+      return;
+    }
+
+    const { data, error } = await supabase.auth.signUp({
+      email: normalizedEmail,
+      password,
+    });
+
+    if (error) {
+      setLoading(false);
+      setMessage(error.message);
+      return;
+    }
+
+    if (data.user?.id) {
+      await supabase.rpc('consume_broker_invite', { p_email: normalizedEmail });
+    }
+
+    setLoading(false);
     setMessage('Cadastro realizado com sucesso. Agora faça login.');
     setMode('login');
     setPassword('');
@@ -113,74 +150,85 @@ export default function LoginPage() {
               type="email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
+              className="w-full rounded-2xl border border-white/10 bg-white/10 px-4 py-3 text-white outline-none focus:border-red-400"
+              placeholder="seuemail.com"
+              autoComplete="email"
               required
-              className="w-full rounded-2xl bg-white/5 border border-white/10 px-4 py-3 text-white placeholder-zinc-500 outline-none focus:border-red-500 transition-colors text-sm"
-              placeholder="seu@email.com"
             />
           </div>
 
-          <div>
-            <label className="block text-xs uppercase tracking-wider text-zinc-400 mb-1">
-              Senha
-            </label>
-            <input
-              type="password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              required={mode !== 'recover'}
-              className="w-full rounded-2xl bg-white/5 border border-white/10 px-4 py-3 text-white placeholder-zinc-500 outline-none focus:border-red-500 transition-colors text-sm"
-              placeholder="••••••••"
-            />
-          </div>
+          {mode !== 'recover' && (
+            <div>
+              <label className="block text-xs uppercase tracking-wider text-zinc-400 mb-1">
+                Senha
+              </label>
+              <input
+                type="password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                className="w-full rounded-2xl border border-white/10 bg-white/10 px-4 py-3 text-white outline-none focus:border-red-400"
+                placeholder="Sua senha"
+                autoComplete={mode === 'login' ? 'current-password' : 'new-password'}
+                required
+                minLength={6}
+              />
+            </div>
+          )}
 
           {message && (
-            <p className={`text-sm ${
-              message.toLowerCase().includes('sucesso') || message.toLowerCase().includes('enviado')
-                ? 'text-emerald-400'
-                : 'text-red-400'
-            }`}>
+            <div className="rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-zinc-200">
               {message}
-            </p>
+            </div>
           )}
 
           <button
             type="submit"
             disabled={loading}
-            className="w-full bg-[#E50914] hover:bg-red-700 text-white font-semibold py-3 rounded-2xl transition-colors disabled:opacity-50 text-sm min-h-[44px]"
+            className="w-full rounded-2xl bg-[#E50914] px-4 py-3 font-semibold text-white hover:bg-red-700 transition-colors disabled:opacity-50"
           >
             {loading
-              ? 'Aguarde...'
+              ? 'Carregando...'
               : mode === 'login'
               ? 'Entrar'
               : mode === 'register'
               ? 'Cadastrar'
-              : 'Enviar link'}
+              : 'Enviar recuperação'}
           </button>
         </form>
 
-        <div className="mt-6 flex flex-col gap-2 text-center">
+        <div className="mt-4 space-y-2">
+          <button
+            type="button"
+            onClick={() => {
+              setMode(mode === 'login' ? 'register' : 'login');
+              setMessage('');
+            }}
+            className="w-full rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-white hover:bg-white/10 transition-colors"
+          >
+            {mode === 'login' ? 'Quero me cadastrar' : 'Já tenho conta'}
+          </button>
+
+          <button
+            type="button"
+            onClick={() => {
+              setMode('recover');
+              setMessage('');
+            }}
+            className="w-full rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-zinc-300 hover:bg-white/10 transition-colors"
+          >
+            Esqueci minha senha
+          </button>
+
           {mode !== 'login' && (
             <button
-              onClick={() => { setMode('login'); setMessage(''); }}
-              className="text-xs text-zinc-500 hover:text-white transition-colors"
+              type="button"
+              onClick={() => {
+                setMode('login');
+                setMessage('');
+              }}
+              className="w-full text-xs text-zinc-500 hover:text-zinc-300 transition-colors"
             >
-              Já tenho conta — fazer login
-            </button>
-          )}
-          {mode !== 'register' && (
-            <button
-              onClick={() => { setMode('register'); setMessage(''); }}
-              className="text-xs text-zinc-500 hover:text-white transition-colors"
-            >
-              Primeiro acesso — cadastrar conta
-            </button>
-          )}
-          {mode !== 'recover' && (
-            <button
-              onClick={() => { setMode('recover'); setMessage(''); }}
-              className="text-xs text-zinc-500 hover:text-white transition-colors"
-            >
-              Esqueci minha senha
+              Voltar para login
             </button>
           )}
         </div>
