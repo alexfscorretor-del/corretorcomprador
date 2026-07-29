@@ -2,7 +2,17 @@
 
 import { useState } from 'react';
 import { supabase } from '@/lib/supabase';
-import { loginSchema, registerSchema } from '@/schemas/auth';
+import { z } from 'zod';
+
+const loginSchema = z.object({
+  email: z.string().trim().email('E-mail inválido.'),
+  password: z.string().min(6, 'Senha deve ter ao menos 6 caracteres.'),
+});
+
+const registerSchema = z.object({
+  email: z.string().trim().email('E-mail inválido.'),
+  password: z.string().min(6, 'Senha deve ter ao menos 6 caracteres.'),
+});
 
 type Mode = 'login' | 'register' | 'recover';
 
@@ -42,8 +52,7 @@ export default function LoginPage() {
       return;
     }
 
-    // Full page reload garante que o browser envia os cookies recém-gravados
-    // no próximo request — o middleware Next.js então lê a sessão corretamente.
+    // Full reload garante que o browser envia os cookies ao middleware
     window.location.href = '/dashboard';
   }
 
@@ -146,7 +155,7 @@ export default function LoginPage() {
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               className="w-full rounded-2xl border border-white/10 bg-white/10 px-4 py-3 text-white outline-none focus:border-red-400"
-              placeholder="seuemail.com"
+              placeholder="seuemail@exemplo.com"
               autoComplete="email"
               required
             />
@@ -194,10 +203,7 @@ export default function LoginPage() {
         <div className="mt-4 space-y-2">
           <button
             type="button"
-            onClick={() => {
-              setMode(mode === 'login' ? 'register' : 'login');
-              setMessage('');
-            }}
+            onClick={() => { setMode(mode === 'login' ? 'register' : 'login'); setMessage(''); }}
             className="w-full rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-white hover:bg-white/10 transition-colors"
           >
             {mode === 'login' ? 'Quero me cadastrar' : 'Já tenho conta'}
@@ -205,10 +211,7 @@ export default function LoginPage() {
 
           <button
             type="button"
-            onClick={() => {
-              setMode('recover');
-              setMessage('');
-            }}
+            onClick={() => { setMode('recover'); setMessage(''); }}
             className="w-full rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-zinc-300 hover:bg-white/10 transition-colors"
           >
             Esqueci minha senha
@@ -217,10 +220,7 @@ export default function LoginPage() {
           {mode !== 'login' && (
             <button
               type="button"
-              onClick={() => {
-                setMode('login');
-                setMessage('');
-              }}
+              onClick={() => { setMode('login'); setMessage(''); }}
               className="w-full text-xs text-zinc-500 hover:text-zinc-300 transition-colors"
             >
               Voltar para login
