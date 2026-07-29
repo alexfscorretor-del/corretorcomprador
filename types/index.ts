@@ -118,6 +118,8 @@ export interface Client {
 export interface Broker {
   id: string;
   nome: string;
+  nomeExibicao?: string;
+  nome_exibicao?: string;
   telefone: string;
   email?: string;
   empresa?: string;
