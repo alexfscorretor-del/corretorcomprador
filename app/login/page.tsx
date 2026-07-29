@@ -1,14 +1,12 @@
 'use client';
 
 import { useState } from 'react';
-import { useRouter } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
 import { loginSchema, registerSchema } from '@/schemas/auth';
 
 type Mode = 'login' | 'register' | 'recover';
 
 export default function LoginPage() {
-  const router = useRouter();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
@@ -44,12 +42,9 @@ export default function LoginPage() {
       return;
     }
 
-    // CRÍTICO: router.refresh() força o Next.js a revalidar o middleware
-    // com os cookies SSR recém-gravados antes de navegar para /dashboard.
-    // Sem isso, o middleware ainda enxerga o usuário como não autenticado
-    // e redireciona de volta para /login silenciosamente.
-    router.refresh();
-    router.push('/dashboard');
+    // Full page reload garante que o browser envia os cookies recém-gravados
+    // no próximo request — o middleware Next.js então lê a sessão corretamente.
+    window.location.href = '/dashboard';
   }
 
   async function handleRegister(e: React.FormEvent) {
