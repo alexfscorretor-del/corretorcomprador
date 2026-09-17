@@ -1,0 +1,12 @@
+plugins { id 'com.android.application' }
+
+android { namespace 'com.prumo.player'; compileSdk 35
+    defaultConfig { applicationId 'com.prumo.player'; minSdk 26; targetSdk 35; versionCode 1; versionName '1.0.0' }
+}
+
+dependencies {
+    implementation 'androidx.appcompat:appcompat:1.7.1'
+    implementation 'androidx.activity:activity:1.10.1'
+    implementation 'androidx.media3:media3-exoplayer:1.8.0'
+    implementation 'androidx.media3:media3-ui:1.8.0'
+}
